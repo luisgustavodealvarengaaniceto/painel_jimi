@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fixedContentService } from '../../services/fixedContentService';
 import type { FixedContent } from '../../types';
 import { Edit, Trash2, Plus } from 'lucide-react';
+import { triggerDisplayUpdate } from '../../hooks/useDisplaySync';
 
 const Container = styled.div`
   background: ${props => props.theme.colors.white};
@@ -211,7 +212,12 @@ const FixedContentManager: React.FC<FixedContentManagerProps> = ({
   const deleteMutation = useMutation({
     mutationFn: fixedContentService.deleteFixedContent,
     onSuccess: () => {
+      // Invalidate admin fixed content
       queryClient.invalidateQueries({ queryKey: ['admin-fixed-content'] });
+      // Invalidate display fixed content to update TV display immediately
+      queryClient.invalidateQueries({ queryKey: ['fixedContent'] });
+      // Trigger cross-tab update notification
+      triggerDisplayUpdate();
     },
   });
 

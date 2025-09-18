@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { slidesService } from '../../services/slidesService';
 import type { Slide, CreateSlideRequest, UpdateSlideRequest } from '../../types';
 import { Save, X } from 'lucide-react';
+import { triggerDisplayUpdate } from '../../hooks/useDisplaySync';
 
 const Overlay = styled.div`
   position: fixed;
@@ -210,6 +211,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slide, onClose }) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-slides'] });
       queryClient.invalidateQueries({ queryKey: ['slides'] });
+      triggerDisplayUpdate(); // Notify display to update
       onClose();
     },
     onError: (error: any) => {
@@ -224,6 +226,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slide, onClose }) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-slides'] });
       queryClient.invalidateQueries({ queryKey: ['slides'] });
+      triggerDisplayUpdate(); // Notify display to update
       onClose();
     },
     onError: (error: any) => {

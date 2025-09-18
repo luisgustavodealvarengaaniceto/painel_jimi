@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { fixedContentService } from '../../services/fixedContentService';
 import type { FixedContent, CreateFixedContentRequest, UpdateFixedContentRequest } from '../../types';
 import { Save, X } from 'lucide-react';
+import { triggerDisplayUpdate } from '../../hooks/useDisplaySync';
 
 const Overlay = styled.div`
   position: fixed;
@@ -213,6 +214,7 @@ const FixedContentEditor: React.FC<FixedContentEditorProps> = ({ content, onClos
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-fixed-content'] });
       queryClient.invalidateQueries({ queryKey: ['fixedContent'] });
+      triggerDisplayUpdate(); // Notify display to update
       onClose();
     },
     onError: (error: any) => {
@@ -227,6 +229,7 @@ const FixedContentEditor: React.FC<FixedContentEditorProps> = ({ content, onClos
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-fixed-content'] });
       queryClient.invalidateQueries({ queryKey: ['fixedContent'] });
+      triggerDisplayUpdate(); // Notify display to update
       onClose();
     },
     onError: (error: any) => {

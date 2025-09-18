@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { slidesService } from '../../services/slidesService';
 import type { Slide } from '../../types';
 import { Edit, Trash2, Plus } from 'lucide-react';
+import { triggerDisplayUpdate } from '../../hooks/useDisplaySync';
 
 const Container = styled.div`
   background: ${props => props.theme.colors.white};
@@ -220,7 +221,12 @@ const SlidesManager: React.FC<SlidesManagerProps> = ({ onCreateSlide, onEditSlid
   const deleteMutation = useMutation({
     mutationFn: slidesService.deleteSlide,
     onSuccess: () => {
+      // Invalidate admin slides
       queryClient.invalidateQueries({ queryKey: ['admin-slides'] });
+      // Invalidate display slides to update TV display immediately
+      queryClient.invalidateQueries({ queryKey: ['slides'] });
+      // Trigger cross-tab update notification
+      triggerDisplayUpdate();
     },
   });
 

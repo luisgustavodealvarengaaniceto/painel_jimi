@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { useQuery } from '@tanstack/react-query';
 import { slidesService } from '../services/slidesService';
 import { fixedContentService } from '../services/fixedContentService';
+import { useDisplaySync } from '../hooks/useDisplaySync';
 
 const Container = styled.div`
   height: 100vh;
@@ -222,20 +223,42 @@ const ErrorMessage = styled.div`
 const DisplayPage: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const [lastUpdate, setLastUpdate] = useState(new Date());
 
-  // Fetch slides
-  const { data: slides = [], isLoading: slidesLoading, error: slidesError } = useQuery({
+  // Initialize display sync for real-time updates
+  useDisplaySync();
+
+  // Fetch slides with aggressive refreshing for TV display
+  const { data: slides = [], isLoading: slidesLoading, error: slidesError, dataUpdatedAt } = useQuery({
     queryKey: ['slides'],
     queryFn: slidesService.getAllSlides,
-    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchInterval: 5000, // Refetch every 5 seconds for TV display
+    refetchIntervalInBackground: true, // Continue refetching when tab is not active
+    refetchOnWindowFocus: true, // Refetch when window gains focus
+    refetchOnMount: true, // Always refetch on component mount
+    staleTime: 0, // Consider data immediately stale
+    gcTime: 1000 * 60, // Keep in cache for 1 minute
   });
 
-  // Fetch fixed content
-  const { data: fixedContent = [], isLoading: contentLoading, error: contentError } = useQuery({
+  // Fetch fixed content with aggressive refreshing
+  const { data: fixedContent = [], isLoading: contentLoading, error: contentError, dataUpdatedAt: fixedContentUpdatedAt } = useQuery({
     queryKey: ['fixedContent'],
     queryFn: fixedContentService.getAllFixedContent,
-    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchInterval: 5000, // Refetch every 5 seconds for TV display
+    refetchIntervalInBackground: true, // Continue refetching when tab is not active
+    refetchOnWindowFocus: true, // Refetch when window gains focus
+    refetchOnMount: true, // Always refetch on component mount
+    staleTime: 0, // Consider data immediately stale
+    gcTime: 1000 * 60, // Keep in cache for 1 minute
   });
+
+  // Update last update time when data changes
+  useEffect(() => {
+    const latestUpdate = Math.max(dataUpdatedAt || 0, fixedContentUpdatedAt || 0);
+    if (latestUpdate > 0) {
+      setLastUpdate(new Date(latestUpdate));
+    }
+  }, [dataUpdatedAt, fixedContentUpdatedAt]);
 
   // Update time every second
   useEffect(() => {
@@ -320,6 +343,12 @@ const DisplayPage: React.FC = () => {
             />
           </FixedContentItem>
         ))}
+        
+        {/* Status indicator for last update */}
+        <FixedContentItem style={{ fontSize: '12px', opacity: 0.7, marginTop: 'auto' }}>
+          <div>🔄 Última atualização:</div>
+          <div>{lastUpdate.toLocaleTimeString('pt-BR')}</div>
+        </FixedContentItem>
       </FixedSection>
 
       <DynamicSection>

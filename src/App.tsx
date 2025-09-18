@@ -12,8 +12,12 @@ import { theme } from './styles/theme';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
+      staleTime: 0, // Data is immediately stale for TV display
       gcTime: 10 * 60 * 1000, // 10 minutes (was cacheTime)
+      refetchOnWindowFocus: true, // Refetch when window gains focus
+      refetchOnMount: true, // Always refetch on component mount
+      retry: 3, // Retry failed requests 3 times
+      retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
     },
   },
 });
