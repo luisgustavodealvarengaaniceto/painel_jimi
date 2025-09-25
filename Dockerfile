@@ -1,11 +1,12 @@
 # Multi-stage build para otimização
-FROM node:18-alpine AS base
+FROM node:18 AS base
 
 # Instalar dependências necessárias
-RUN apk add --no-cache \
+RUN apt-get update && apt-get install -y \
     curl \
     bash \
-    postgresql-client
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -40,18 +41,19 @@ COPY backend/ .
 RUN npm run build
 
 # Stage 3: Production
-FROM node:18-alpine AS production
+FROM node:18 AS production
 
 # Instalar dependências de sistema
-RUN apk add --no-cache \
+RUN apt-get update && apt-get install -y \
     curl \
     bash \
     postgresql-client \
-    dumb-init
+    dumb-init \
+    && rm -rf /var/lib/apt/lists/*
 
 # Criar usuário não-root
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nextjs -u 1001
+RUN groupadd -g 1001 nodejs && \
+    useradd -r -u 1001 -g nodejs nextjs
 
 WORKDIR /app
 
@@ -73,6 +75,10 @@ RUN chmod +x /entrypoint.sh
 
 # Criar pasta para uploads
 RUN mkdir -p /app/uploads && chown nextjs:nodejs /app/uploads
+
+# Dar permissões completas para o diretório do projeto
+RUN chown -R nextjs:nodejs /app && \
+    chmod -R 755 /app
 
 # Mudar para usuário não-root
 USER nextjs

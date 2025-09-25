@@ -12,6 +12,10 @@ done
 
 echo "✅ PostgreSQL está pronto!"
 
+# Gerar Prisma Client primeiro
+echo "🔧 Gerando Prisma Client..."
+npx prisma generate
+
 # Executar migrações
 echo "📊 Executando migrações..."
 npx prisma db push --accept-data-loss
@@ -19,10 +23,6 @@ npx prisma db push --accept-data-loss
 # Executar seed
 echo "🌱 Executando seed..."
 npx prisma db seed || echo "⚠️ Seed falhou, continuando..."
-
-# Gerar Prisma Client
-echo "🔧 Gerando Prisma Client..."
-npx prisma generate
 
 echo "🎉 Aplicação iniciada com sucesso!"
 
