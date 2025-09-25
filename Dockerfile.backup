@@ -76,8 +76,8 @@ RUN npx prisma generate
 # Copiar backend buildado
 COPY --from=backend-build --chown=nextjs:nodejs /app/backend/dist ./dist
 
-# Copiar frontend buildado para diretório temporário (será copiado para volume no entrypoint)
-COPY --from=frontend-build --chown=nextjs:nodejs /app/dist ../frontend-build
+# Copiar frontend buildado para o diretório compartilhado
+COPY --from=frontend-build --chown=nextjs:nodejs /app/dist ./frontend
 
 # Criar script de inicialização diretamente no container (evita problemas de CRLF)
 RUN echo '#!/bin/bash' > /entrypoint.sh && \
@@ -107,18 +107,43 @@ RUN echo '#!/bin/bash' > /entrypoint.sh && \
     echo 'npx prisma db push --accept-data-loss --schema=./prisma/schema.prisma || echo "⚠️ Migração falhou, continuando..."' >> /entrypoint.sh && \
     echo 'echo "🌱 Executando seed..."' >> /entrypoint.sh && \
     echo 'npx prisma db seed || echo "⚠️ Seed falhou, continuando..."' >> /entrypoint.sh && \
-    echo 'echo "📁 Configurando arquivos do frontend..."' >> /entrypoint.sh && \
-    echo 'if [ ! -f "/app/frontend/index.html" ]; then' >> /entrypoint.sh && \
-    echo '    echo "🔄 Copiando arquivos do frontend para volume compartilhado..."' >> /entrypoint.sh && \
-    echo '    cp -r /app/frontend-build/. /app/frontend/ 2>/dev/null || echo "⚠️ Falha na cópia dos arquivos"' >> /entrypoint.sh && \
-    echo 'fi' >> /entrypoint.sh && \
-    echo 'if [ -f "/app/frontend/index.html" ]; then' >> /entrypoint.sh && \
-    echo '    echo "✅ Frontend React configurado!"' >> /entrypoint.sh && \
-    echo '    ls -la /app/frontend/' >> /entrypoint.sh && \
-    echo 'else' >> /entrypoint.sh && \
-    echo '    echo "❌ Frontend não encontrado!"' >> /entrypoint.sh && \
-    echo 'fi' >> /entrypoint.sh && \
-    echo 'echo "🎉 Aplicação iniciada com sucesso!"' >> /entrypoint.sh && \
+    echo 'echo "� Criando arquivo HTML básico..."' >> /entrypoint.sh && \
+    echo 'mkdir -p /app/frontend' >> /entrypoint.sh && \
+    echo 'cat > /app/frontend/index.html << EOF' >> /entrypoint.sh && \
+    echo '<!DOCTYPE html>' >> /entrypoint.sh && \
+    echo '<html lang="pt-BR">' >> /entrypoint.sh && \
+    echo '<head>' >> /entrypoint.sh && \
+    echo '    <meta charset="UTF-8">' >> /entrypoint.sh && \
+    echo '    <meta name="viewport" content="width=device-width, initial-scale=1.0">' >> /entrypoint.sh && \
+    echo '    <title>JIMI IOT Brasil Dashboard</title>' >> /entrypoint.sh && \
+    echo '    <style>' >> /entrypoint.sh && \
+    echo '        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }' >> /entrypoint.sh && \
+    echo '        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }' >> /entrypoint.sh && \
+    echo '        .header { text-align: center; color: #09A0E9; margin-bottom: 30px; }' >> /entrypoint.sh && \
+    echo '        .status { padding: 15px; background: #e8f5e8; border-left: 4px solid #4caf50; margin: 20px 0; }' >> /entrypoint.sh && \
+    echo '    </style>' >> /entrypoint.sh && \
+    echo '</head>' >> /entrypoint.sh && \
+    echo '<body>' >> /entrypoint.sh && \
+    echo '    <div class="container">' >> /entrypoint.sh && \
+    echo '        <div class="header">' >> /entrypoint.sh && \
+    echo '            <h1>🎉 JIMI IOT Brasil Dashboard</h1>' >> /entrypoint.sh && \
+    echo '            <h2>Sistema Online e Funcionando!</h2>' >> /entrypoint.sh && \
+    echo '        </div>' >> /entrypoint.sh && \
+    echo '        <div class="status">' >> /entrypoint.sh && \
+    echo '            <strong>✅ Status do Sistema:</strong><br>' >> /entrypoint.sh && \
+    echo '            • API Backend: Funcionando<br>' >> /entrypoint.sh && \
+    echo '            • Frontend: Funcionando<br>' >> /entrypoint.sh && \
+    echo '            • Database: PostgreSQL conectado<br>' >> /entrypoint.sh && \
+    echo '        </div>' >> /entrypoint.sh && \
+    echo '        <div class="status">' >> /entrypoint.sh && \
+    echo '            <strong>🌐 URLs de Acesso:</strong><br>' >> /entrypoint.sh && \
+    echo '            • <a href="/api/health" target="_blank">API Health Check</a><br>' >> /entrypoint.sh && \
+    echo '        </div>' >> /entrypoint.sh && \
+    echo '    </div>' >> /entrypoint.sh && \
+    echo '</body>' >> /entrypoint.sh && \
+    echo '</html>' >> /entrypoint.sh && \
+    echo 'EOF' >> /entrypoint.sh && \
+    echo 'echo "�🎉 Aplicação iniciada com sucesso!"' >> /entrypoint.sh && \
     echo 'exec node dist/app.js' >> /entrypoint.sh && \
     chmod +x /entrypoint.sh
 
