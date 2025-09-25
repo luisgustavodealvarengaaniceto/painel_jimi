@@ -78,13 +78,61 @@ npm run seed
 
 ## 🚀 Executando o Projeto
 
-### Desenvolvimento
+### 🐳 Docker (Recomendado para Produção)
+
+**Pré-requisitos:**
+- Docker >= 20.10
+- Docker Compose >= 2.0
+
+```bash
+# 1. Clone o repositório
+git clone <repository-url>
+cd painel_jimi
+
+# 2. Execute com Docker Compose
+docker compose up -d
+
+# 3. Acesse o sistema
+# http://localhost:1212
+```
+
+**Usuários criados automaticamente:**
+- **Admin**: usuário `admin`, senha `admin123`
+- **Visualizador**: usuário `tv`, senha `viewer123`
+
+**Comandos úteis:**
+```bash
+# Ver logs dos containers
+docker compose logs -f
+
+# Parar os serviços
+docker compose down
+
+# Reconstruir as imagens
+docker compose up --build -d
+
+# Limpar volumes (CUIDADO: apaga dados do banco)
+docker compose down -v
+```
+
+### 🛠 Desenvolvimento Local
+
+**Pré-requisitos:**
+- Node.js >= 18.0.0
+- PostgreSQL >= 13
+
 ```bash
 # Terminal 1 - Backend
 cd backend
+npm install
+cp .env.example .env
+# Configure o DATABASE_URL no arquivo .env
+npx prisma migrate dev
+npx prisma generate
 npm run dev
 
 # Terminal 2 - Frontend (na raiz do projeto)
+npm install
 npm run dev
 ```
 

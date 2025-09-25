@@ -46,7 +46,7 @@ COPY backend/ .
 RUN npm run build
 
 # Stage 3: Production
-FROM node:18 AS production
+FROM node:20 AS production
 
 # Instalar dependências de sistema
 RUN apt-get update && apt-get install -y \
@@ -54,6 +54,8 @@ RUN apt-get update && apt-get install -y \
     bash \
     postgresql-client \
     dumb-init \
+    openssl \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Criar usuário não-root
@@ -71,7 +73,14 @@ RUN npm ci --only=production && npm cache clean --force
 
 # Gerar Prisma Client durante o build
 COPY --from=backend-build /app/backend/prisma ./prisma
-RUN npx prisma generate
+
+# Configurar variáveis de ambiente para Prisma
+ENV PRISMA_CLI_BINARY_TARGETS="native,linux-musl,debian-openssl-1.1.x,debian-openssl-3.0.x"
+ENV PRISMA_ENGINES_MIRROR="https://github.com/prisma/prisma-engines/releases"
+
+# Gerar Prisma Client com permissões corretas
+RUN npx prisma generate && \
+    chmod -R 755 node_modules/@prisma
 
 # Copiar backend buildado
 COPY --from=backend-build --chown=nextjs:nodejs /app/backend/dist ./dist
@@ -103,7 +112,12 @@ RUN echo '#!/bin/bash' > /entrypoint.sh && \
     echo '    echo "Tentativa $i/30: PostgreSQL ainda não está pronto, aguardando..."' >> /entrypoint.sh && \
     echo '    sleep 2' >> /entrypoint.sh && \
     echo 'done' >> /entrypoint.sh && \
-    echo 'echo "📊 Executando migrações..."' >> /entrypoint.sh && \
+    echo 'echo "� Verificando Prisma Client..."' >> /entrypoint.sh && \
+    echo 'if [ ! -d "node_modules/@prisma/client" ] || [ ! -f "node_modules/@prisma/client/index.js" ]; then' >> /entrypoint.sh && \
+    echo '    echo "⚠️ Prisma Client não encontrado, gerando novamente..."' >> /entrypoint.sh && \
+    echo '    npx prisma generate --schema=./prisma/schema.prisma || echo "❌ Erro ao gerar Prisma Client"' >> /entrypoint.sh && \
+    echo 'fi' >> /entrypoint.sh && \
+    echo 'echo "�📊 Executando migrações..."' >> /entrypoint.sh && \
     echo 'npx prisma db push --accept-data-loss --schema=./prisma/schema.prisma || echo "⚠️ Migração falhou, continuando..."' >> /entrypoint.sh && \
     echo 'echo "🌱 Executando seed..."' >> /entrypoint.sh && \
     echo 'npx prisma db seed || echo "⚠️ Seed falhou, continuando..."' >> /entrypoint.sh && \
@@ -128,7 +142,8 @@ RUN mkdir -p /app/uploads && chown nextjs:nodejs /app/uploads
 # Dar permissões completas para o diretório do projeto
 RUN chown -R nextjs:nodejs /app && \
     chmod -R 755 /app && \
-    chown nextjs:nodejs /entrypoint.sh
+    chown nextjs:nodejs /entrypoint.sh && \
+    chmod -R 777 /app/backend/node_modules/@prisma || true
 
 # Mudar para usuário não-root
 USER nextjs
