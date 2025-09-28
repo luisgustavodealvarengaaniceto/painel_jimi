@@ -13,6 +13,7 @@ services:
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     networks:
       - jimi-network
     healthcheck:
@@ -22,21 +23,22 @@ services:
       retries: 5
       start_period: 30s
 
-  # Application - Versão Ultra Simples
+  # Application (Frontend + Backend)
   app:
     build:
       context: .
       dockerfile: Dockerfile
+      target: production
     container_name: jimi-app
     restart: unless-stopped
+    env_file:
+      - .env.docker
     environment:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://painel_user:JimiIOT2024@postgres:5432/painel_jimi
       - POSTGRES_USER=painel_user
       - POSTGRES_PASSWORD=JimiIOT2024
       - POSTGRES_DB=painel_jimi
-      - JWT_SECRET=jimi-iot-brasil-super-secure-secret-key-2024
-      - PORT=3001
     volumes:
       - app_uploads:/app/uploads
       - frontend_files:/app/frontend
@@ -45,6 +47,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # Nginx Reverse Proxy
   nginx:
@@ -59,7 +67,8 @@ services:
     networks:
       - jimi-network
     depends_on:
-      - app
+      app:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
       interval: 30s

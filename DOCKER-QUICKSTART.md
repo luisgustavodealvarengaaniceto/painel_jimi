@@ -1,4 +1,4 @@
-# 🚀 Instruções Rápidas - Docker
+# 🚀 Instruções Rápidas - Docker (Versão Final)
 
 ## Para usuários que acabaram de fazer git clone
 
@@ -8,14 +8,25 @@ Se você acabou de fazer `git clone` e quer rodar o sistema imediatamente:
 # 1. Entre no diretório do projeto
 cd painel_jimi
 
-# 2. Execute o Docker Compose
+# 2. Execute o Docker Compose (Versão Final - Robusta)
 docker compose up -d
 
-# 3. Aguarde os containers iniciarem (pode levar alguns minutos na primeira vez)
-docker compose logs -f
+# 3. Monitore a inicialização (primeira vez pode levar 3-5 minutos)
+docker compose logs -f app
 
-# 4. Acesse o sistema em: http://localhost:1212
+# 4. Aguarde ver a mensagem: "🎉 Iniciando servidor Node.js..."
+
+# 5. Acesse o sistema em: http://localhost:1212
 ```
+
+## ✅ O que foi melhorado na versão final:
+
+- ✅ **Prisma robusto**: Gera client automaticamente no runtime
+- ✅ **Timeout inteligente**: Aguarda PostgreSQL por até 60 segundos
+- ✅ **Verificação de conectividade**: Testa conexão antes de iniciar
+- ✅ **Logs detalhados**: Acompanhe cada etapa da inicialização
+- ✅ **Health checks**: Monitoramento completo dos serviços
+- ✅ **Recuperação automática**: Reinicia em caso de falha
 
 ## ✅ Credenciais Padrão
 
@@ -66,8 +77,21 @@ docker logs jimi-app --tail 50
 Se você vir erros como:
 - "Can't write to /app/backend/node_modules/@prisma/engines"
 - "Prisma failed to detect the libssl/openssl version"
+- "Unknown binaryTarget 'native' and no custom engine files were provided"
 
-**Solução 1 - Use a versão simplificada:**
+**Solução 1 - Use a versão runtime (mais confiável):**
+```bash
+# Pare os containers atuais
+docker compose down -v
+
+# Use o docker-compose com geração runtime do Prisma
+docker compose -f docker-compose.runtime.yml up -d
+
+# Monitore os logs
+docker compose -f docker-compose.runtime.yml logs -f app
+```
+
+**Solução 2 - Use a versão simplificada:**
 ```bash
 # Pare os containers atuais
 docker compose down -v
@@ -79,7 +103,7 @@ docker compose -f docker-compose.simple.yml up -d
 docker compose -f docker-compose.simple.yml logs -f
 ```
 
-**Solução 2 - Reconstrua com cache limpo:**
+**Solução 3 - Reconstrua com cache limpo:**
 ```bash
 docker compose down -v
 docker system prune -f

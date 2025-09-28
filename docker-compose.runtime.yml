@@ -22,11 +22,11 @@ services:
       retries: 5
       start_period: 30s
 
-  # Application - Versão Ultra Simples
+  # Application - Runtime Prisma Generation
   app:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.runtime
     container_name: jimi-app
     restart: unless-stopped
     environment:
@@ -45,6 +45,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    ports:
+      - "3001:3001"  # Exposição direta para debug
 
   # Nginx Reverse Proxy
   nginx:
@@ -60,23 +62,14 @@ services:
       - jimi-network
     depends_on:
       - app
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
 # Networks
 networks:
   jimi-network:
     driver: bridge
-    name: jimi-iot-network
 
 # Volumes
 volumes:
   postgres_data:
-    name: jimi-postgres-data
   app_uploads:
-    name: jimi-app-uploads
   frontend_files:
-    name: jimi-frontend-files

@@ -7,12 +7,12 @@ WORKDIR /app
 COPY package*.json ./
 COPY backend/package*.json ./backend/
 
-# Instalar dependências do frontend (incluindo dev para build)
-RUN npm ci && npm cache clean --force
+# Instalar dependências do frontend
+RUN npm ci --omit=dev && npm cache clean --force
 
-# Instalar dependências do backend (incluindo dev para build)
+# Instalar dependências do backend
 WORKDIR /app/backend
-RUN npm ci && npm cache clean --force
+RUN npm ci --omit=dev && npm cache clean --force
 
 # Voltar para raiz
 WORKDIR /app

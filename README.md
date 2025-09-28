@@ -89,12 +89,23 @@ npm run seed
 git clone <repository-url>
 cd painel_jimi
 
-# 2. Execute com Docker Compose
+# 2. Execute com Docker Compose (Versão Final - Robusta)
 docker compose up -d
 
-# 3. Acesse o sistema
+# 3. Monitore a inicialização (primeira vez pode levar alguns minutos)
+docker compose logs -f app
+
+# 4. Acesse o sistema quando ver "🎉 Iniciando servidor Node.js..."
 # http://localhost:1212
 ```
+
+**✨ Funcionalidades da Versão Final:**
+- ✅ Resolução automática de problemas do Prisma
+- ✅ Verificação de conectividade com banco
+- ✅ Timeout robusto para PostgreSQL
+- ✅ Criação automática de usuários (admin/admin123, tv/viewer123)
+- ✅ Health checks completos
+- ✅ Logs detalhados para debugging
 
 **Usuários criados automaticamente:**
 - **Admin**: usuário `admin`, senha `admin123`
@@ -102,17 +113,26 @@ docker compose up -d
 
 **Comandos úteis:**
 ```bash
-# Ver logs dos containers
+# Ver logs em tempo real
 docker compose logs -f
+
+# Ver logs apenas do app
+docker compose logs -f app
 
 # Parar os serviços
 docker compose down
 
-# Reconstruir as imagens
+# Reconstruir as imagens (se houver mudanças no código)
 docker compose up --build -d
 
 # Limpar volumes (CUIDADO: apaga dados do banco)
 docker compose down -v
+
+# Verificar status dos containers
+docker compose ps
+
+# Verificar health dos containers
+docker compose ps --format "table {{.Service}}\t{{.Status}}\t{{.Health}}"
 ```
 
 ### 🛠 Desenvolvimento Local
