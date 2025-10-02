@@ -104,7 +104,7 @@ async function startServer() {
   try {
     // Testar conexão com banco
     console.log('🔍 Testando conexão com banco de dados...');
-    const connected = await testConnection();
+  const connected = await testConnection(true);
     
     if (!connected) {
       throw new Error('Falha na conexão com banco de dados');

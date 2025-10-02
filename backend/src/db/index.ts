@@ -9,10 +9,12 @@ const client = postgres(connectionString, { prepare: false });
 export const db = drizzle(client, { schema });
 
 // Function to test database connection
-export async function testConnection() {
+export async function testConnection(logSuccess = false) {
   try {
     await client`SELECT 1`;
-    console.log('✅ Database connection successful');
+    if (logSuccess) {
+      console.log('✅ Database connection successful');
+    }
     return true;
   } catch (error) {
     console.error('❌ Database connection failed:', error);
