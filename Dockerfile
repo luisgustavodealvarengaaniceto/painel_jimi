@@ -1,5 +1,8 @@
-# Dockerfile Ultra Simples - Funciona Sempre
-FROM node:20
+# JIMI IOT Brasil - Dockerfile Moderno com Drizzle ORM
+FROM node:20-alpine
+
+# Instalar dependências necessárias
+RUN apk add --no-cache postgresql-client curl bash
 
 WORKDIR /app
 
@@ -7,69 +10,40 @@ WORKDIR /app
 COPY package*.json ./
 COPY backend/package*.json ./backend/
 
-# Instalar dependências do frontend (incluindo dev para build)
+# Instalar dependências
 RUN npm ci && npm cache clean --force
 
-# Instalar dependências do backend (incluindo dev para build)
 WORKDIR /app/backend
 RUN npm ci && npm cache clean --force
 
-# Voltar para raiz
 WORKDIR /app
 
 # Copiar código fonte
 COPY . .
 
-# Build do frontend
+# Build da aplicação
 RUN npm run build
 
-# Build do backend
 WORKDIR /app/backend
 RUN npm run build
 
-# Criar diretórios
+# Preparar aplicação
 RUN mkdir -p /app/uploads /app/frontend
-
-# Copiar frontend buildado
 RUN cp -r /app/dist/* /app/frontend/ 2>/dev/null || true
 
-# Script simples e direto
-RUN echo '#!/bin/bash\n\
-set -e\n\
-echo "🚀 JIMI IOT BRASIL - Iniciando..."\n\
-\n\
-# Aguardar PostgreSQL\n\
-echo "⏳ Aguardando PostgreSQL..."\n\
-for i in {1..30}; do\n\
-    if command -v pg_isready >/dev/null && pg_isready -h postgres -p 5432 -U painel_user; then\n\
-        echo "✅ PostgreSQL pronto!"\n\
-        break\n\
-    fi\n\
-    echo "Tentativa $i/30..."\n\
-    sleep 2\n\
-done\n\
-\n\
-cd /app/backend\n\
-\n\
-# Instalar e gerar Prisma\n\
-echo "🔧 Configurando Prisma..."\n\
-npm install @prisma/client || echo "Prisma já instalado"\n\
-npx prisma generate --schema=./prisma/schema.prisma || echo "Erro no generate, continuando..."\n\
-\n\
-# Migrações\n\
-echo "📊 Aplicando migrações..."\n\
-npx prisma db push --accept-data-loss --schema=./prisma/schema.prisma || echo "Erro nas migrações, continuando..."\n\
-\n\
-# Configurar frontend\n\
-if [ ! -f "/app/frontend/index.html" ]; then\n\
-    cp -r /app/dist/* /app/frontend/ 2>/dev/null || echo "Frontend já configurado"\n\
-fi\n\
-\n\
-echo "🎉 Iniciando servidor..."\n\
-exec node dist/app.js' > /start.sh && chmod +x /start.sh
+# Script de inicialização
+COPY docker/start.sh /start.sh
+RUN chmod +x /start.sh
 
-# Expor porta
 EXPOSE 3001
 
-# Comando simples
+# Health check para monitoramento
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD node -e "const http = require('http'); \
+    const req = http.request({hostname: 'localhost', port: 3001, path: '/api/health', timeout: 5000}, (res) => { \
+      process.exit(res.statusCode === 200 ? 0 : 1); \
+    }); \
+    req.on('error', () => process.exit(1)); \
+    req.end();"
+
 CMD ["/start.sh"]

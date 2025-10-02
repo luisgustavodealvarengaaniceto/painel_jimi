@@ -4,8 +4,8 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import path from 'path';
-import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcryptjs';
+import { testConnection } from './db';
+import seed from './db/seed';
 
 // Import routes
 import authRoutes from './routes/auth';
@@ -16,45 +16,12 @@ import usersRoutes from './routes/users';
 // Load environment variables
 dotenv.config();
 
-const prisma = new PrismaClient();
-
 // Função para criar usuários padrão
 async function createDefaultUsers() {
   try {
     console.log('🔍 Verificando usuários padrão...');
-    
-    // Verificar se já existem usuários
-    const userCount = await prisma.user.count();
-    
-    if (userCount === 0) {
-      console.log('👤 Criando usuários padrão...');
-      
-      // Criar usuário admin
-      const adminPassword = await bcrypt.hash('admin123', 10);
-      await prisma.user.create({
-        data: {
-          username: 'admin',
-          password: adminPassword,
-          role: 'ADMIN'
-        }
-      });
-      
-      // Criar usuário viewer
-      const viewerPassword = await bcrypt.hash('viewer123', 10);
-      await prisma.user.create({
-        data: {
-          username: 'tv',
-          password: viewerPassword,
-          role: 'VIEWER'
-        }
-      });
-      
-      console.log('✅ Usuários padrão criados com sucesso!');
-      console.log('   - admin/admin123 (ADMIN)');
-      console.log('   - tv/viewer123 (VIEWER)');
-    } else {
-      console.log(`✅ ${userCount} usuário(s) já existem no banco de dados`);
-    }
+    await seed();
+    console.log('✅ Usuários padrão configurados!');
   } catch (error) {
     console.error('❌ Erro ao criar usuários padrão:', error);
   }
@@ -95,12 +62,28 @@ app.use('/api/users', usersRoutes);
 app.use('/api/users', usersRoutes);
 
 // Health check
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    message: 'JIMI IOT Brasil Dashboard API is running',
-    timestamp: new Date().toISOString()
-  });
+app.get('/api/health', async (req, res) => {
+  try {
+    // Test database connection
+    await testConnection();
+    
+    res.json({ 
+      status: 'healthy',
+      message: 'JIMI IOT Brasil Dashboard API is running',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      database: 'connected',
+      environment: process.env.NODE_ENV || 'development'
+    });
+  } catch (error) {
+    console.error('Health check failed:', error);
+    res.status(503).json({
+      status: 'unhealthy',
+      message: 'Service unavailable',
+      timestamp: new Date().toISOString(),
+      error: error instanceof Error ? error.message : 'Database connection failed'
+    });
+  }
 });
 
 // Error handling middleware
@@ -120,6 +103,14 @@ app.use('*', (req, res) => {
 // Função de inicialização
 async function startServer() {
   try {
+    // Testar conexão com banco
+    console.log('🔍 Testando conexão com banco de dados...');
+    const connected = await testConnection();
+    
+    if (!connected) {
+      throw new Error('Falha na conexão com banco de dados');
+    }
+    
     // Criar usuários padrão se necessário
     await createDefaultUsers();
     

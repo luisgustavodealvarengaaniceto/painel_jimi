@@ -1,7 +1,5 @@
-version: '3.8'
-
 services:
-  # PostgreSQL Database
+  # PostgreSQL Database - Container Independente
   postgres:
     image: postgres:15-alpine
     container_name: jimi-postgres
@@ -10,7 +8,6 @@ services:
       POSTGRES_DB: painel_jimi
       POSTGRES_USER: painel_user
       POSTGRES_PASSWORD: JimiIOT2024
-      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -21,8 +18,11 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    # Permite conectar diretamente para manutenção
+    ports:
+      - "5433:5432"  # Porta externa diferente para evitar conflitos
 
-  # Application - Versão Ultra Simples
+  # Application - Container do Painel (Backend + Frontend)
   app:
     build:
       context: .
@@ -32,21 +32,21 @@ services:
     environment:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://painel_user:JimiIOT2024@postgres:5432/painel_jimi
-      - POSTGRES_USER=painel_user
-      - POSTGRES_PASSWORD=JimiIOT2024
-      - POSTGRES_DB=painel_jimi
       - JWT_SECRET=jimi-iot-brasil-super-secure-secret-key-2024
       - PORT=3001
     volumes:
-      - app_uploads:/app/uploads
       - frontend_files:/app/frontend
+      - app_logs:/app/logs  # Logs persistentes
     networks:
       - jimi-network
     depends_on:
       postgres:
         condition: service_healthy
+    # Permite acesso direto para debug
+    ports:
+      - "3001:3001"
 
-  # Nginx Reverse Proxy
+  # Nginx - Proxy Reverso (Container Separado)
   nginx:
     image: nginx:alpine
     container_name: jimi-nginx
@@ -54,29 +54,30 @@ services:
     ports:
       - "1212:80"
     volumes:
-      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
-      - frontend_files:/app/frontend
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - frontend_files:/app/frontend:ro
+      - nginx_logs:/var/log/nginx  # Logs separados do nginx
     networks:
       - jimi-network
     depends_on:
       - app
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      test: ["CMD", "nginx", "-t"]
       interval: 30s
       timeout: 10s
       retries: 3
 
-# Networks
 networks:
   jimi-network:
     driver: bridge
-    name: jimi-iot-network
+    name: jimi-network
 
-# Volumes
 volumes:
   postgres_data:
-    name: jimi-postgres-data
-  app_uploads:
-    name: jimi-app-uploads
+    name: jimi_postgres_data
   frontend_files:
-    name: jimi-frontend-files
+    name: jimi_frontend_files
+  app_logs:
+    name: jimi_app_logs
+  nginx_logs:
+    name: jimi_nginx_logs

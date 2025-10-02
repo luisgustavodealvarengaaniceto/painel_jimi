@@ -24,7 +24,7 @@ Um sistema completo de dashboard para exibição em televisores, desenvolvido es
 ### Backend
 - **Node.js** com Express
 - **TypeScript** para tipagem
-- **Prisma ORM** com PostgreSQL
+- **Drizzle ORM** com PostgreSQL (moderno e estável)
 - **JWT** para autenticação
 - **bcryptjs** para criptografia de senhas
 - **Helmet** e Rate Limiting para segurança
@@ -100,12 +100,12 @@ docker compose logs -f app
 ```
 
 **✨ Funcionalidades da Versão Final:**
-- ✅ Resolução automática de problemas do Prisma
-- ✅ Verificação de conectividade com banco
-- ✅ Timeout robusto para PostgreSQL
-- ✅ Criação automática de usuários (admin/admin123, tv/viewer123)
-- ✅ Health checks completos
-- ✅ Logs detalhados para debugging
+- ✅ **Drizzle ORM**: Moderno, estável e sem problemas de compatibilidade
+- ✅ **Configuração automática**: Migrações e seed automáticos
+- ✅ **Verificação de conectividade**: Testa conexão antes de iniciar
+- ✅ **Usuários automáticos**: Criação automática (admin/admin123, tv/viewer123)
+- ✅ **Alpine Linux**: Imagem Docker otimizada e segura
+- ✅ **Logs detalhados**: Acompanhe cada etapa da inicialização
 
 **Usuários criados automaticamente:**
 - **Admin**: usuário `admin`, senha `admin123`
