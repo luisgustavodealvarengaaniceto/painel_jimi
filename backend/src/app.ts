@@ -18,10 +18,19 @@ dotenv.config();
 
 // Função para criar usuários padrão
 async function createDefaultUsers() {
+  if (process.env.SEED_ON_STARTUP === 'false') {
+    console.log('ℹ️ Seed automático desabilitado (SEED_ON_STARTUP=false).');
+    return;
+  }
+
   try {
     console.log('🔍 Verificando usuários padrão...');
-    await seed();
-    console.log('✅ Usuários padrão configurados!');
+    const result = await seed();
+    if (result.executed) {
+      console.log('✅ Usuários padrão configurados!');
+    } else {
+      console.log(result.reason ?? 'ℹ️ Seed já havia sido executado.');
+    }
   } catch (error) {
     console.error('❌ Erro ao criar usuários padrão:', error);
   }
