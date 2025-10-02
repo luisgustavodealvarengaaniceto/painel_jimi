@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
+import { db } from '../db';
+import { users } from '../db/schema';
+import { eq } from 'drizzle-orm';
 import { AuthRequest } from '../types';
-
-const prisma = new PrismaClient();
 
 export const authenticateToken = async (req: AuthRequest, res: Response, next: NextFunction) => {
   const authHeader = req.get('authorization');
@@ -14,11 +14,16 @@ export const authenticateToken = async (req: AuthRequest, res: Response, next: N
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { userId: string };
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
-      select: { id: true, username: true, role: true, createdAt: true, updatedAt: true }
-    });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { userId: number };
+    const userResult = await db.select({
+      id: users.id,
+      username: users.username,
+      role: users.role,
+      createdAt: users.createdAt,
+      updatedAt: users.updatedAt
+    }).from(users).where(eq(users.id, decoded.userId)).limit(1);
+
+    const user = userResult[0];
 
     if (!user) {
       return res.status(401).json({ message: 'Invalid token' });
