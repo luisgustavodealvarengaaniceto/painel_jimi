@@ -43,12 +43,19 @@ const PORT = process.env.PORT || 3001;
 app.use(helmet());
 
 // Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS ?? 60_000);
+const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX ?? 1200);
+
+const generalLimiter = rateLimit({
+  windowMs: RATE_LIMIT_WINDOW_MS,
+  max: RATE_LIMIT_MAX,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.method === 'GET' || req.path === '/api/health',
   message: 'Too many requests from this IP, please try again later.'
 });
-app.use(limiter);
+
+app.use(generalLimiter);
 
 // CORS configuration
 app.use(cors({
