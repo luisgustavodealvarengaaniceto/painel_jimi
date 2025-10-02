@@ -1,384 +1,97 @@
-import { Request, Response } from 'express';import { Request, Response } from 'express';import { Request, Response } from 'express';import { Request, Response } from 'express';
-
+import type { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
-
-import jwt from 'jsonwebtoken';import bcrypt from 'bcryptjs';
-
-import { db } from '../db';
-
-import { users } from '../db/schema';import jwt from 'jsonwebtoken';import bcrypt from 'bcryptjs';import bcrypt from 'bcryptjs';
-
+import jwt from 'jsonwebtoken';
 import { eq } from 'drizzle-orm';
 
 import { db } from '../db';
+import { users } from '../db/schema';
+import type { AuthRequest, CreateUserRequest, LoginRequest } from '../types';
+import { serializeUser } from '../utils/serializers';
+
+const JWT_EXPIRES_IN = '24h';
 
 export const login = async (req: Request, res: Response) => {
-
-  try {import { users } from '../db/schema';import * as jwt from 'jsonwebtoken';import * as jwt from 'jsonwebtoken';
-
-    const { username, password } = req.body;
-
-import { eq } from 'drizzle-orm';
+  try {
+    const { username, password } = req.body as LoginRequest;
 
     if (!username || !password) {
-
-      return res.status(400).json({ message: 'Username and password are required' });import { db } from '../db';import { db } from '../db';
-
+      return res.status(400).json({ message: 'Username and password are required' });
     }
 
-export const login = async (req: Request, res: Response) => {
+    const [user] = await db.select().from(users).where(eq(users.username, username)).limit(1);
 
-    const userResult = await db.select().from(users).where(eq(users.username, username)).limit(1);
-
-    const user = userResult[0];  try {import { users } from '../db/schema';import { users } from '../db/schema';
-
-
-
-    if (!user) {    const { username, password } = req.body;
-
+    if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' });
+    }
 
-    }import { eq } from 'drizzle-orm';import { eq } from 'drizzle-orm';
-
-
-
-    const isPasswordValid = await bcrypt.compare(password, user.password);    if (!username || !password) {
+    const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
-
-      return res.status(401).json({ message: 'Invalid credentials' });      return res.status(400).json({ message: 'Username and password are required' });import type { LoginRequest, AuthRequest } from '../types';import type { LoginRequest, AuthRequest } from '../types';
-
-    }
-
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
 
     const token = jwt.sign(
-
-      { userId: user.id, username: user.username, role: user.role },
-
+      { userId: user.id, role: user.role },
       process.env.JWT_SECRET!,
-
-      { expiresIn: '24h' }    const userResult = await db.select().from(users).where(eq(users.username, username)).limit(1);
-
+      { expiresIn: JWT_EXPIRES_IN }
     );
 
-    const user = userResult[0];export const login = async (req: Request, res: Response) => {export const login = async (req: Request, res: Response) => {
-
-    res.json({
-
+    return res.json({
       message: 'Login successful',
-
       token,
-
-      user: {    if (!user) {  try {  try {
-
-        id: user.id,
-
-        username: user.username,      return res.status(401).json({ message: 'Invalid credentials' });
-
-        role: user.role
-
-      }    }    const { username, password }: LoginRequest = req.body;    const { username, password }: LoginRequest = req.body;
-
+      user: serializeUser(user),
     });
-
   } catch (error) {
-
     console.error('Login error:', error);
-
-    res.status(500).json({ message: 'Internal server error' });    const isPasswordValid = await bcrypt.compare(password, user.password);
-
+    return res.status(500).json({ message: 'Internal server error' });
   }
-
-};    if (!isPasswordValid) {
-
-
-
-export const me = async (req: any, res: Response) => {      return res.status(401).json({ message: 'Invalid credentials' });    if (!username || !password) {    if (!username || !password) {
-
-  try {
-
-    res.json({    }
-
-      user: {
-
-        id: req.user.id,      return res.status(400).json({ message: 'Username and password are required' });      return res.status(400).json({ message: 'Username and password are required' });
-
-        username: req.user.username,
-
-        role: req.user.role    const token = jwt.sign(
-
-      }
-
-    });      { userId: user.id, username: user.username, role: user.role },    }    }
-
-  } catch (error) {
-
-    console.error('Me error:', error);      process.env.JWT_SECRET!,
-
-    res.status(500).json({ message: 'Internal server error' });
-
-  }      { expiresIn: '24h' }
-
 };
 
-    );
+export const me = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+
+    return res.json({ user: serializeUser(req.user) });
+  } catch (error) {
+    console.error('Me error:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
 
 export const createUser = async (req: Request, res: Response) => {
-
-  try {    // Find user    // Find user
-
-    const { username, password, role } = req.body;
-
-    res.json({
-
-    if (!username || !password) {
-
-      return res.status(400).json({ message: 'Username and password are required' });      message: 'Login successful',    const userResult = await db.select().from(users).where(eq(users.username, username)).limit(1);    const userResult = await db.select().from(users).where(eq(users.username, username)).limit(1);
-
-    }
-
-      token,
-
-    const existingUserResult = await db.select().from(users).where(eq(users.username, username)).limit(1);
-
-    if (existingUserResult[0]) {      user: {    const user = userResult[0];    const user = userResult[0];
-
-      return res.status(400).json({ message: 'Username already exists' });
-
-    }        id: user.id,
-
-
-
-    const hashedPassword = await bcrypt.hash(password, 10);        username: user.username,
-
-
-
-    const newUserResult = await db.insert(users).values({        role: user.role
-
-      username,
-
-      password: hashedPassword,      }    if (!user) {    if (!user) {
-
-      role: role || 'VIEWER'
-
-    }).returning({    });
-
-      id: users.id,
-
-      username: users.username,  } catch (error) {      return res.status(401).json({ message: 'Invalid credentials' });      return res.status(401).json({ message: 'Invalid credentials' });
-
-      role: users.role,
-
-      createdAt: users.createdAt,    console.error('Login error:', error);
-
-      updatedAt: users.updatedAt
-
-    });    res.status(500).json({ message: 'Internal server error' });    }    }
-
-
-
-    res.status(201).json({  }
-
-      message: 'User created successfully',
-
-      user: newUserResult[0]};
-
-    });
-
-  } catch (error) {
-
-    console.error('Create user error:', error);
-
-    res.status(500).json({ message: 'Internal server error' });export const register = async (req: Request, res: Response) => {    // Check password    // Check password
-
-  }
-
-};  try {
-
-    const { username, password, role } = req.body;    const isPasswordValid = await bcrypt.compare(password, user.password);    const isPasswordValid = await bcrypt.compare(password, user.password);
-
-
-
-    if (!username || !password) {    if (!isPasswordValid) {    if (!isPasswordValid) {
-
-      return res.status(400).json({ message: 'Username and password are required' });
-
-    }      return res.status(401).json({ message: 'Invalid credentials' });      return res.status(401).json({ message: 'Invalid credentials' });
-
-
-
-    const existingUserResult = await db.select().from(users).where(eq(users.username, username)).limit(1);    }    }
-
-    if (existingUserResult[0]) {
-
-      return res.status(400).json({ message: 'Username already exists' });
-
-    }
-
-    // Generate JWT token    // Generate JWT
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const token = jwt.sign(    const jwtSecret = process.env.JWT_SECRET;
-
-    const newUserResult = await db.insert(users).values({
-
-      username,      { userId: user.id, username: user.username, role: user.role },    if (!jwtSecret) {
-
-      password: hashedPassword,
-
-      role: role || 'VIEWER'      process.env.JWT_SECRET!,      throw new Error('JWT_SECRET is not defined');
-
-    }).returning({
-
-      id: users.id,      { expiresIn: '24h' }    }
-
-      username: users.username,
-
-      role: users.role,    );
-
-      createdAt: users.createdAt,
-
-      updatedAt: users.updatedAt    const token = jwt.sign({ userId: user.id }, jwtSecret, { expiresIn: '7d' });
-
-    });
-
-    res.json({
-
-    res.status(201).json({
-
-      message: 'User created successfully',      message: 'Login successful',    res.json({
-
-      user: newUserResult[0]
-
-    });      token,      message: 'Login successful',
-
-  } catch (error) {
-
-    console.error('Create user error:', error);      user: {      token,
-
-    res.status(500).json({ message: 'Internal server error' });
-
-  }        id: user.id,      user: {
-
-};
-        username: user.username,        id: user.id,
-
-        role: user.role        username: user.username,
-
-      }        role: user.role
-
-    });      }
-
-  } catch (error) {    });
-
-    console.error('Login error:', error);  } catch (error) {
-
-    res.status(500).json({ message: 'Internal server error' });    console.error('Login error:', error);
-
-  }    res.status(500).json({ message: 'Internal server error' });
-
-};  }
-
-};
-
-export const register = async (req: AuthRequest, res: Response) => {
-
-  try {export const me = async (req: AuthRequest, res: Response) => {
-
-    const { username, password, role } = req.body;  try {
-
-    if (!req.user) {
-
-    if (!username || !password) {      return res.status(401).json({ message: 'Not authenticated' });
-
-      return res.status(400).json({ message: 'Username and password are required' });    }
-
-    }
-
-    res.json({ user: req.user });
-
-    // Check if user already exists  } catch (error) {
-
-    const existingUserResult = await db.select().from(users).where(eq(users.username, username)).limit(1);    console.error('Me error:', error);
-
-    const existingUser = existingUserResult[0];    res.status(500).json({ message: 'Internal server error' });
-
-  }
-
-    if (existingUser) {};
-
-      return res.status(400).json({ message: 'Username already exists' });
-
-    }export const createUser = async (req: AuthRequest, res: Response) => {
-
   try {
-
-    // Hash password    const { username, password, role } = req.body;
-
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const { username, password, role = 'VIEWER' } = req.body as CreateUserRequest;
 
     if (!username || !password) {
+      return res.status(400).json({ message: 'Username and password are required' });
+    }
 
-    // Create user      return res.status(400).json({ message: 'Username and password are required' });
+    const [existingUser] = await db.select().from(users).where(eq(users.username, username)).limit(1);
 
-    const newUserResult = await db.insert(users).values({    }
-
-      username,
-
-      password: hashedPassword,    // Check if user already exists
-
-      role: role || 'VIEWER'    const existingUserResult = await db.select().from(users).where(eq(users.username, username)).limit(1);
-
-    }).returning({    const existingUser = existingUserResult[0];
-
-      id: users.id,
-
-      username: users.username,    if (existingUser) {
-
-      role: users.role,      return res.status(400).json({ message: 'Username already exists' });
-
-      createdAt: users.createdAt,    }
-
-      updatedAt: users.updatedAt
-
-    });    // Hash password
+    if (existingUser) {
+      return res.status(400).json({ message: 'Username already exists' });
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    const [newUser] = await db
+      .insert(users)
+      .values({
+        username,
+        password: hashedPassword,
+        role,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
 
-    const user = newUserResult[0];
-
-    // Create user
-
-    res.status(201).json({    const newUserResult = await db.insert(users).values({
-
-      message: 'User created successfully',      username,
-
-      user      password: hashedPassword,
-
-    });      role: role || 'VIEWER'
-
-  } catch (error) {    }).returning({
-
-    console.error('Create user error:', error);      id: users.id,
-
-    res.status(500).json({ message: 'Internal server error' });      username: users.username,
-
-  }      role: users.role,
-
-};      createdAt: users.createdAt,
-      updatedAt: users.updatedAt
-    });
-
-    const user = newUserResult[0];
-
-    res.status(201).json({
+    return res.status(201).json({
       message: 'User created successfully',
-      user
+      user: serializeUser(newUser),
     });
   } catch (error) {
     console.error('Create user error:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    return res.status(500).json({ message: 'Internal server error' });
   }
 };

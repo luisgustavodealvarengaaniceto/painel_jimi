@@ -41,7 +41,6 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^1.4.11",
     "@types/node": "^20.19.14",
-    "@types/postgres": "^3.0.0",
     "drizzle-kit": "^0.24.0",
     "nodemon": "^3.0.1",
     "ts-node": "^10.9.1",
