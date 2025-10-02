@@ -59,7 +59,6 @@ app.use('/api/auth', authRoutes);
 app.use('/api/slides', slidesRoutes);
 app.use('/api/fixed-content', fixedContentRoutes);
 app.use('/api/users', usersRoutes);
-app.use('/api/users', usersRoutes);
 
 // Health check
 app.get('/api/health', async (req, res) => {

@@ -5,6 +5,8 @@ export default defineConfig({
   out: './drizzle',
   dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.DATABASE_URL!,
+    url: process.env.DATABASE_URL || 'postgresql://painel_user:JimiIOT2024@localhost:5432/painel_jimi'
   },
+  verbose: true,
+  strict: true
 });
