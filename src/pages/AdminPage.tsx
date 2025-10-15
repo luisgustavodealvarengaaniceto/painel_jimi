@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import SlidesManager from '../components/admin/SlidesManager';
@@ -9,7 +9,9 @@ import FixedContentEditor from '../components/admin/FixedContentEditor';
 import UsersManager from '../components/admin/UsersManager';
 import UserEditor from '../components/admin/UserEditor';
 import SettingsManager from '../components/admin/SettingsManager';
+import ArchivedSlidesViewer from '../components/admin/ArchivedSlidesViewer';
 import type { Slide, FixedContent, User } from '../types';
+import type { Theme } from '../styles/themes';
 
 const Container = styled.div`
   min-height: 100vh;
@@ -141,6 +143,20 @@ const Button = styled.button`
   }
 `;
 
+const ClearCacheButton = styled(Button)`
+  background: ${props => props.theme.colors.gray[600]};
+  margin-right: ${props => props.theme.spacing[2]};
+
+  &:hover {
+    background: ${props => props.theme.colors.gray[700]};
+  }
+  
+  @media (max-width: 768px) {
+    margin-right: ${props => props.theme.spacing[1]};
+    margin-bottom: ${props => props.theme.spacing[2]};
+  }
+`;
+
 const ViewDisplayButton = styled(Button)`
   background: ${props => props.theme.colors.primary};
   margin-right: ${props => props.theme.spacing[2]};
@@ -269,9 +285,12 @@ const FeatureDescription = styled.p`
 `;
 
 const AdminPage: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, clearCache } = useAuth();
   const navigate = useNavigate();
-  const [currentView, setCurrentView] = useState<'overview' | 'slides' | 'content' | 'users' | 'settings'>('overview');
+  const theme = useTheme() as Theme;
+  const brandName = theme.brand || 'JIMI IOT BRASIL';
+  const brandFull = brandName;
+  const [currentView, setCurrentView] = useState<'overview' | 'slides' | 'content' | 'users' | 'settings' | 'archived'>('overview');
   const [editingSlide, setEditingSlide] = useState<Slide | null>(null);
   const [isCreatingSlide, setIsCreatingSlide] = useState(false);
   const [editingContent, setEditingContent] = useState<FixedContent | null>(null);
@@ -288,12 +307,20 @@ const AdminPage: React.FC = () => {
     navigate('/display');
   };
 
+  const handleClearCache = () => {
+    clearCache();
+    alert('Cache limpo com sucesso!');
+  };
+
   return (
     <Container>
       <Header>
-        <Logo>JIMI IOT BRASIL - Painel Administrativo</Logo>
+        <Logo>{brandFull} - Painel Administrativo</Logo>
         <UserInfo2>
-          <UserName>Olá, {user?.username}!</UserName>
+          <UserName>Olá, {user?.username}! ({user?.tenant})</UserName>
+          <ClearCacheButton onClick={handleClearCache}>
+            🗑️ Limpar Cache
+          </ClearCacheButton>
           <ViewDisplayButton onClick={handleViewDisplay}>
             Ver Display
           </ViewDisplayButton>
@@ -316,6 +343,12 @@ const AdminPage: React.FC = () => {
             onClick={() => setCurrentView('slides')}
           >
             🎞️ Slides
+          </NavItem>
+          <NavItem 
+            $active={currentView === 'archived'} 
+            onClick={() => setCurrentView('archived')}
+          >
+            📦 Arquivados
           </NavItem>
           <NavItem 
             $active={currentView === 'content'} 
@@ -344,7 +377,7 @@ const AdminPage: React.FC = () => {
             <WelcomeBox>
               <WelcomeTitle>Bem-vindo ao Painel Administrativo</WelcomeTitle>
               <WelcomeText>
-                Gerencie o conteúdo do dashboard da JIMI IOT Brasil.<br />
+                Gerencie o conteúdo do dashboard da {brandFull}.<br />
                 Configure slides, conteúdo fixo e monitore as exibições.
               </WelcomeText>
             </WelcomeBox>
@@ -394,6 +427,10 @@ const AdminPage: React.FC = () => {
             onCreateSlide={() => setIsCreatingSlide(true)}
             onEditSlide={(slide) => setEditingSlide(slide)}
           />
+        )}
+
+        {currentView === 'archived' && (
+          <ArchivedSlidesViewer />
         )}
 
         {currentView === 'content' && (

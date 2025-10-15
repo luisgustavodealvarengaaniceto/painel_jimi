@@ -6,6 +6,7 @@ export interface AuthenticatedUser {
   id: number;
   username: string;
   role: UserRole;
+  tenant: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -37,6 +38,8 @@ export interface CreateSlideRequest {
   duration?: number;
   order?: number;
   isActive?: boolean;
+  expiresAt?: string | null;
+  fontSize?: number;
 }
 
 export interface UpdateSlideRequest {
@@ -45,6 +48,9 @@ export interface UpdateSlideRequest {
   duration?: number;
   order?: number;
   isActive?: boolean;
+  expiresAt?: string | null;
+  isArchived?: boolean;
+  fontSize?: number;
 }
 
 export interface CreateFixedContentRequest {
@@ -52,6 +58,7 @@ export interface CreateFixedContentRequest {
   content: string;
   order?: number;
   isActive?: boolean;
+  fontSize?: number;
 }
 
 export interface UpdateFixedContentRequest {
@@ -59,4 +66,5 @@ export interface UpdateFixedContentRequest {
   content?: string;
   isActive?: boolean;
   order?: number;
+  fontSize?: number;
 }

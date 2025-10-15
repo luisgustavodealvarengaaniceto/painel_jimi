@@ -14,11 +14,14 @@ export const authenticateToken = async (req: AuthRequest, res: Response, next: N
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { userId: number };
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { userId: number; tenant: string };
+    console.log(`🔐 [AUTH] Decoded JWT - userId: ${decoded.userId}, tenant: ${decoded.tenant}`);
+    
     const userResult = await db.select({
       id: users.id,
       username: users.username,
       role: users.role,
+      tenant: users.tenant,
       createdAt: users.createdAt,
       updatedAt: users.updatedAt
     }).from(users).where(eq(users.id, decoded.userId)).limit(1);
@@ -29,6 +32,7 @@ export const authenticateToken = async (req: AuthRequest, res: Response, next: N
       return res.status(401).json({ message: 'Invalid token' });
     }
 
+    console.log(`👤 [AUTH] User from DB - username: ${user.username}, tenant: ${user.tenant}`);
     req.user = user;
     next();
   } catch (error) {

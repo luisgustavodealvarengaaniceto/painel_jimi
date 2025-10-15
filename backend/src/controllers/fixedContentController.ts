@@ -1,16 +1,19 @@
 import type { Request, Response } from 'express';
-import { asc, eq } from 'drizzle-orm';
+import { asc, eq, and } from 'drizzle-orm';
 
 import { db } from '../db';
 import { fixedContent } from '../db/schema';
-import type { CreateFixedContentRequest, UpdateFixedContentRequest } from '../types';
+import type { CreateFixedContentRequest, UpdateFixedContentRequest, AuthRequest } from '../types';
 import { serializeFixedContent } from '../utils/serializers';
 
-export const getAllFixedContent = async (_req: Request, res: Response) => {
+export const getAllFixedContent = async (req: AuthRequest, res: Response) => {
   try {
+    const tenant = req.user?.tenant || 'default';
+    
     const items = await db
       .select()
       .from(fixedContent)
+      .where(eq(fixedContent.tenant, tenant))
       .orderBy(asc(fixedContent.order), asc(fixedContent.id));
 
     return res.json({ content: items.map(serializeFixedContent) });
@@ -20,7 +23,7 @@ export const getAllFixedContent = async (_req: Request, res: Response) => {
   }
 };
 
-export const getFixedContentById = async (req: Request, res: Response) => {
+export const getFixedContentById = async (req: AuthRequest, res: Response) => {
   try {
     const contentId = Number(req.params.id);
 
@@ -28,10 +31,15 @@ export const getFixedContentById = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Invalid fixed content id' });
     }
 
+    const tenant = req.user?.tenant || 'default';
+
     const [item] = await db
       .select()
       .from(fixedContent)
-      .where(eq(fixedContent.id, contentId))
+      .where(and(
+        eq(fixedContent.id, contentId),
+        eq(fixedContent.tenant, tenant)
+      ))
       .limit(1);
 
     if (!item) {
@@ -45,13 +53,15 @@ export const getFixedContentById = async (req: Request, res: Response) => {
   }
 };
 
-export const createFixedContent = async (req: Request, res: Response) => {
+export const createFixedContent = async (req: AuthRequest, res: Response) => {
   try {
-    const { type, content, order, isActive } = req.body as CreateFixedContentRequest;
+    const { type, content, order, isActive, fontSize } = req.body as CreateFixedContentRequest;
 
     if (!type || !content) {
       return res.status(400).json({ message: 'Type and content are required' });
     }
+
+    const tenant = req.user?.tenant || 'default';
 
     const [newItem] = await db
       .insert(fixedContent)
@@ -60,6 +70,8 @@ export const createFixedContent = async (req: Request, res: Response) => {
         content,
         order: typeof order === 'number' ? order : 0,
         isActive: typeof isActive === 'boolean' ? isActive : true,
+        fontSize: typeof fontSize === 'number' ? fontSize : 14,
+        tenant,
         createdAt: new Date(),
         updatedAt: new Date(),
       })
@@ -75,7 +87,7 @@ export const createFixedContent = async (req: Request, res: Response) => {
   }
 };
 
-export const updateFixedContent = async (req: Request, res: Response) => {
+export const updateFixedContent = async (req: AuthRequest, res: Response) => {
   try {
     const contentId = Number(req.params.id);
 
@@ -83,7 +95,8 @@ export const updateFixedContent = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Invalid fixed content id' });
     }
 
-    const { type, content: bodyContent, isActive, order } = req.body as UpdateFixedContentRequest;
+    const { type, content: bodyContent, isActive, order, fontSize } = req.body as UpdateFixedContentRequest;
+    const tenant = req.user?.tenant || 'default';
 
     const updateData: Partial<typeof fixedContent.$inferInsert> = {};
 
@@ -91,6 +104,7 @@ export const updateFixedContent = async (req: Request, res: Response) => {
     if (bodyContent !== undefined) updateData.content = bodyContent;
     if (isActive !== undefined) updateData.isActive = isActive;
     if (order !== undefined) updateData.order = order;
+    if (fontSize !== undefined) updateData.fontSize = fontSize;
 
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({ message: 'No fields provided for update' });
@@ -101,7 +115,10 @@ export const updateFixedContent = async (req: Request, res: Response) => {
     const [updatedItem] = await db
       .update(fixedContent)
       .set(updateData)
-      .where(eq(fixedContent.id, contentId))
+      .where(and(
+        eq(fixedContent.id, contentId),
+        eq(fixedContent.tenant, tenant)
+      ))
       .returning();
 
     if (!updatedItem) {
@@ -118,7 +135,7 @@ export const updateFixedContent = async (req: Request, res: Response) => {
   }
 };
 
-export const deleteFixedContent = async (req: Request, res: Response) => {
+export const deleteFixedContent = async (req: AuthRequest, res: Response) => {
   try {
     const contentId = Number(req.params.id);
 
@@ -126,9 +143,14 @@ export const deleteFixedContent = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Invalid fixed content id' });
     }
 
+    const tenant = req.user?.tenant || 'default';
+
     const [deletedItem] = await db
       .delete(fixedContent)
-      .where(eq(fixedContent.id, contentId))
+      .where(and(
+        eq(fixedContent.id, contentId),
+        eq(fixedContent.tenant, tenant)
+      ))
       .returning({ id: fixedContent.id });
 
     if (!deletedItem) {

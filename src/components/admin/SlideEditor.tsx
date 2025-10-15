@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { slidesService } from '../../services/slidesService';
+import { getSlideImages, type SlideAttachment } from '../../services/attachmentService';
+import { useAuth } from '../../contexts/AuthContext';
 import type { Slide, CreateSlideRequest, UpdateSlideRequest } from '../../types';
 import { Save, X } from 'lucide-react';
 import { triggerDisplayUpdate } from '../../hooks/useDisplaySync';
+import ImageUploader from './ImageUploader';
 
 const Overlay = styled.div`
   position: fixed;
@@ -200,17 +203,44 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slide, onClose }) => {
   const [duration, setDuration] = useState(slide?.duration || 10);
   const [order, setOrder] = useState(slide?.order || 0);
   const [isActive, setIsActive] = useState(slide?.isActive ?? true);
+  const [fontSize, setFontSize] = useState(slide?.fontSize || 16);
+  const [images, setImages] = useState<SlideAttachment[]>([]);
+  const [expiresAt, setExpiresAt] = useState(() => {
+    if (!slide?.expiresAt) return '';
+    
+    // Converte UTC para horário local para exibição
+    const utcDate = new Date(slide.expiresAt);
+    const localDate = new Date(utcDate.getTime() - (utcDate.getTimezoneOffset() * 60000));
+    return localDate.toISOString().slice(0, 16);
+  });
   const [error, setError] = useState('');
 
+  // Buscar imagens existentes se estamos editando
+  const { data: existingImages } = useQuery({
+    queryKey: ['slide-images', slide?.id],
+    queryFn: () => slide ? getSlideImages(Number(slide.id)) : Promise.resolve([]),
+    enabled: !!slide?.id,
+  });
+
+  // Atualizar state com imagens existentes
+  useEffect(() => {
+    if (existingImages && Array.isArray(existingImages)) {
+      setImages(existingImages);
+    } else {
+      setImages([]); // Garantir que sempre seja um array
+    }
+  }, [existingImages]);
+
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const isEditing = !!slide;
 
   // Create slide mutation
   const createMutation = useMutation({
     mutationFn: (data: CreateSlideRequest) => slidesService.createSlide(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-slides'] });
-      queryClient.invalidateQueries({ queryKey: ['slides'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-slides', user?.tenant] });
+      queryClient.invalidateQueries({ queryKey: ['slides', user?.tenant] });
       triggerDisplayUpdate(); // Notify display to update
       onClose();
     },
@@ -224,8 +254,8 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slide, onClose }) => {
     mutationFn: ({ id, data }: { id: string; data: UpdateSlideRequest }) => 
       slidesService.updateSlide(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-slides'] });
-      queryClient.invalidateQueries({ queryKey: ['slides'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-slides', user?.tenant] });
+      queryClient.invalidateQueries({ queryKey: ['slides', user?.tenant] });
       triggerDisplayUpdate(); // Notify display to update
       onClose();
     },
@@ -243,12 +273,28 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slide, onClose }) => {
       return;
     }
 
+    // Função para converter datetime-local para UTC corretamente
+    const convertToUTC = (dateTimeLocal: string) => {
+      if (!dateTimeLocal) return undefined;
+      
+      // Adiciona segundos se não estiver presente
+      const fullDateTime = dateTimeLocal.includes(':') && dateTimeLocal.split(':').length === 2 
+        ? dateTimeLocal + ':00' 
+        : dateTimeLocal;
+      
+      // Cria a data no horário local (não forçando UTC)
+      const date = new Date(fullDateTime);
+      return date.toISOString();
+    };
+
     const slideData = {
       title: title.trim(),
       content: content.trim(),
       duration: Number(duration),
       order: Number(order),
       isActive,
+      fontSize: Number(fontSize),
+      expiresAt: convertToUTC(expiresAt),
     };
 
     try {
@@ -303,6 +349,22 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slide, onClose }) => {
             </HelperText>
           </FormGroup>
 
+          {/* Upload de Imagens */}
+          {isEditing && slide ? (
+            <ImageUploader
+              slideId={Number(slide.id)}
+              images={images}
+              onImagesChange={setImages}
+            />
+          ) : (
+            <FormGroup>
+              <Label>Imagens do Slide</Label>
+              <HelperText style={{ color: '#6B7280', fontStyle: 'italic', padding: '1rem', border: '1px dashed #D1D5DB', borderRadius: '8px', textAlign: 'center' }}>
+                💡 Dica: Você poderá adicionar imagens após criar o slide
+              </HelperText>
+            </FormGroup>
+          )}
+
           <FormRow>
             <FormGroup>
               <Label htmlFor="duration">Duração (segundos)</Label>
@@ -342,6 +404,32 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slide, onClose }) => {
             </CheckboxGroup>
             <HelperText>Slides inativos não serão exibidos no dashboard</HelperText>
           </FormGroup>
+
+          <FormRow>
+            <FormGroup>
+              <Label htmlFor="fontSize">Tamanho da Fonte</Label>
+              <Input
+                id="fontSize"
+                type="number"
+                min="8"
+                max="72"
+                value={fontSize}
+                onChange={(e) => setFontSize(Number(e.target.value))}
+              />
+              <HelperText>Tamanho da fonte em pixels (8-72)</HelperText>
+            </FormGroup>
+
+            <FormGroup>
+              <Label htmlFor="expiresAt">Data de Expiração</Label>
+              <Input
+                id="expiresAt"
+                type="datetime-local"
+                value={expiresAt}
+                onChange={(e) => setExpiresAt(e.target.value)}
+              />
+              <HelperText>Slide será removido automaticamente após esta data</HelperText>
+            </FormGroup>
+          </FormRow>
 
           <Actions>
             <Button type="button" onClick={onClose}>

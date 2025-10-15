@@ -4,12 +4,14 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import path from 'path';
-import { testConnection } from './db';
+import { testConnection, ensureSchema } from './db';
 import seed from './db/seed';
+import { startExpirationJob } from './jobs/archiveSlides';
 
 // Import routes
 import authRoutes from './routes/auth';
 import slidesRoutes from './routes/slides';
+import slideAttachmentsRoutes from './routes/slideAttachments';
 import fixedContentRoutes from './routes/fixedContent';
 import usersRoutes from './routes/users';
 
@@ -39,23 +41,38 @@ async function createDefaultUsers() {
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Trust proxy - necessário quando atrás de Nginx/reverse proxy
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(helmet());
 
-// Rate limiting
-const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS ?? 60_000);
-const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX ?? 1200);
-
-const generalLimiter = rateLimit({
-  windowMs: RATE_LIMIT_WINDOW_MS,
-  max: RATE_LIMIT_MAX,
+// Rate limiting - Configuração mais permissiva para produção
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 500, // 500 requisições por IP a cada 15 minutos
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => req.method === 'GET' || req.path === '/api/health',
-  message: 'Too many requests from this IP, please try again later.'
+  skip: (req) => {
+    // Pular rate limit para rotas de leitura e health check
+    const skipPaths = ['/api/health', '/api/slides', '/api/fixed-content'];
+    return skipPaths.some(path => req.path.startsWith(path)) && req.method === 'GET';
+  },
+  message: { message: 'Muitas requisições. Por favor, aguarde alguns minutos.' }
 });
 
-app.use(generalLimiter);
+// Rate limiter mais restritivo apenas para login
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20, // 20 tentativas de login por 15 minutos
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  message: { message: 'Muitas tentativas de login. Aguarde 15 minutos.' }
+});
+
+app.use('/api/auth/login', authLimiter);
+app.use(limiter);
 
 // CORS configuration
 app.use(cors({
@@ -72,6 +89,7 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/slides', slideAttachmentsRoutes); // Rotas de attachments (deve vir antes das rotas de slides)
 app.use('/api/slides', slidesRoutes);
 app.use('/api/fixed-content', fixedContentRoutes);
 app.use('/api/users', usersRoutes);
@@ -126,8 +144,14 @@ async function startServer() {
       throw new Error('Falha na conexão com banco de dados');
     }
     
+    // Garantir que o schema está atualizado
+    await ensureSchema();
+    
     // Criar usuários padrão se necessário
     await createDefaultUsers();
+    
+    // Iniciar job de arquivamento de slides expirados
+    startExpirationJob();
     
     // Iniciar servidor
     app.listen(PORT, () => {

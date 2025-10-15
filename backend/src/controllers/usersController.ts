@@ -14,6 +14,7 @@ export const getAllUsers = async (_req: Request, res: Response) => {
         id: users.id,
         username: users.username,
         role: users.role,
+        tenant: users.tenant,
         createdAt: users.createdAt,
         updatedAt: users.updatedAt,
       })
@@ -40,6 +41,7 @@ export const getUserById = async (req: Request, res: Response) => {
         id: users.id,
         username: users.username,
         role: users.role,
+        tenant: users.tenant,
         createdAt: users.createdAt,
         updatedAt: users.updatedAt,
       })

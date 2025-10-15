@@ -1,6 +1,6 @@
 import type { User as DbUser, Slide as DbSlide, FixedContent as DbFixedContent } from '../db/schema';
 
-type UserRecord = Pick<DbUser, 'id' | 'username' | 'role' | 'createdAt' | 'updatedAt'> & {
+type UserRecord = Pick<DbUser, 'id' | 'username' | 'role' | 'tenant' | 'createdAt' | 'updatedAt'> & {
   password?: string | null;
 };
 
@@ -21,6 +21,7 @@ export const serializeUser = (user: UserRecord) => ({
   id: user.id.toString(),
   username: user.username,
   role: user.role,
+  tenant: user.tenant,
   createdAt: toIsoString(user.createdAt),
   updatedAt: toIsoString(user.updatedAt),
 });
@@ -32,6 +33,9 @@ export const serializeSlide = (slide: DbSlide) => ({
   duration: slide.duration,
   order: slide.order,
   isActive: slide.isActive,
+  expiresAt: slide.expiresAt ? toIsoString(slide.expiresAt) : null,
+  isArchived: slide.isArchived,
+  tenant: slide.tenant,
   createdAt: toIsoString(slide.createdAt),
   updatedAt: toIsoString(slide.updatedAt),
 });
@@ -42,6 +46,7 @@ export const serializeFixedContent = (content: DbFixedContent) => ({
   content: content.content,
   isActive: content.isActive,
   order: content.order,
+  tenant: content.tenant,
   createdAt: toIsoString(content.createdAt),
   updatedAt: toIsoString(content.updatedAt),
 });

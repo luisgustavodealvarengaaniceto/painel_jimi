@@ -2,6 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usersService } from '../../services/usersService';
+import { useAuth } from '../../contexts/AuthContext';
 import type { User } from '../../types';
 import { Edit, Trash2, Plus, Shield, Eye } from 'lucide-react';
 
@@ -227,12 +228,15 @@ const UsersManager: React.FC<UsersManagerProps> = ({
   onEditUser, 
   currentUserId 
 }) => {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Fetch users
+  // Fetch users - only if user is admin
   const { data: users = [], isLoading, error } = useQuery({
     queryKey: ['admin-users'],
     queryFn: usersService.getAllUsers,
+    enabled: user?.role === 'ADMIN', // Only run if user is admin
+    refetchOnWindowFocus: false, // Disable auto-refetch to prevent permission errors
   });
 
   // Delete user mutation

@@ -2,6 +2,7 @@ export interface User {
   id: string;
   username: string;
   role: 'ADMIN' | 'VIEWER';
+  tenant: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -13,6 +14,10 @@ export interface Slide {
   duration: number;
   order: number;
   isActive: boolean;
+  expiresAt?: string | null;
+  isArchived?: boolean;
+  fontSize: number; // Tamanho da fonte em pixels
+  tenant: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -23,6 +28,8 @@ export interface FixedContent {
   content: string;
   isActive: boolean;
   order: number;
+  fontSize: number; // Tamanho da fonte em pixels
+  tenant: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -38,6 +45,9 @@ export interface CreateSlideRequest {
   content: string;
   duration?: number;
   order?: number;
+  isActive?: boolean;
+  expiresAt?: string;
+  fontSize?: number;
 }
 
 export interface UpdateSlideRequest {
@@ -46,12 +56,16 @@ export interface UpdateSlideRequest {
   duration?: number;
   order?: number;
   isActive?: boolean;
+  expiresAt?: string;
+  isArchived?: boolean;
+  fontSize?: number;
 }
 
 export interface CreateFixedContentRequest {
   type: string;
   content: string;
   order?: number;
+  fontSize?: number;
 }
 
 export interface UpdateFixedContentRequest {
@@ -59,6 +73,7 @@ export interface UpdateFixedContentRequest {
   content?: string;
   isActive?: boolean;
   order?: number;
+  fontSize?: number;
 }
 
 export interface CreateUserRequest {

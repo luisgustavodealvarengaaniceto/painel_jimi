@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Multi-tenancy - JIMI IOT</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-btn {
+            padding: 12px 24px;
+            margin: 5px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+        }
+        .btn-jimi {
+            background: #09A0E9;
+        }
+        .btn-akroz {
+            background: #1B4D69;
+        }
+        .btn-logout {
+            background: #dc3545;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-left: 4px solid #09A0E9;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        h1 {
+            color: #272D3B;
+        }
+        h2 {
+            color: #09A0E9;
+            margin-top: 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .checklist {
+            list-style: none;
+            padding: 0;
+        }
+        .checklist li {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .checklist li:before {
+            content: "✓ ";
+            color: #28a745;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste de Multi-tenancy - JIMI IOT Brasil Dashboard</h1>
+    
+    <div class="test-section">
+        <h2>1️⃣ Login nos Tenants</h2>
+        <p>Clique nos botões para fazer login com diferentes usuários:</p>
+        <button class="test-btn btn-jimi" onclick="login('admin', 'admin123')">Login ADMIN (JIMI)</button>
+        <button class="test-btn btn-jimi" onclick="login('tv', 'viewer123')">Login TV (JIMI)</button>
+        <button class="test-btn btn-akroz" onclick="login('akroz', 'akroz123')">Login AKROZ (Admin)</button>
+        <button class="test-btn btn-akroz" onclick="login('akroz-tv', 'viewer123')">Login AKROZ-TV (Viewer)</button>
+        <button class="test-btn btn-logout" onclick="logout()">Logout</button>
+        <div id="login-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2️⃣ Verificar Tenant Atual</h2>
+        <p>Verifica qual tenant está logado e seu token JWT:</p>
+        <button class="test-btn btn-jimi" onclick="checkAuth()">Verificar Autenticação</button>
+        <div id="auth-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3️⃣ Testar Slides do Tenant</h2>
+        <p>Lista os slides do tenant atual (segregação de dados):</p>
+        <button class="test-btn btn-jimi" onclick="getSlides()">Buscar Slides</button>
+        <div id="slides-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>4️⃣ Abrir Dashboard</h2>
+        <p>Abre o dashboard real no navegador:</p>
+        <button class="test-btn btn-jimi" onclick="openDashboard()">🖥️ Abrir Dashboard</button>
+        <button class="test-btn btn-akroz" onclick="openAdmin()">⚙️ Abrir Admin</button>
+    </div>
+
+    <div class="test-section">
+        <h2>✅ Checklist de Verificação Visual</h2>
+        <p>Ao abrir o dashboard, verifique:</p>
+        <ul class="checklist">
+            <li><strong>Tenant JIMI (admin/tv):</strong> Logo "JIMI IOT BRASIL", cor azul #09A0E9</li>
+            <li><strong>Tenant AKROZ (akroz/akroz-tv):</strong> Logo "AKROZ TELEMATICS", cor azul escuro #1B4D69</li>
+            <li><strong>Cores do tema:</strong> Gradientes e botões devem usar cores do tenant</li>
+            <li><strong>Dados segregados:</strong> Cada tenant vê apenas seus próprios slides</li>
+            <li><strong>Headers dinâmicos:</strong> Texto "JIMI IOT BRASIL" vs "AKROZ TELEMATICS"</li>
+        </ul>
+        <p><strong>⚠️ IMPORTANTE:</strong> Limpe o cache do navegador (Ctrl+Shift+R) antes de testar!</p>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:1212/api';
+        
+        async function login(username, password) {
+            const result = document.getElementById('login-result');
+            result.textContent = '🔄 Fazendo login...';
+            
+            try {
+                const response = await fetch(`${API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    result.textContent = `✅ Login bem-sucedido!\n\n` +
+                        `Username: ${data.user.username}\n` +
+                        `Role: ${data.user.role}\n` +
+                        `Tenant: ${data.user.tenant}\n` +
+                        `Token: ${data.token.substring(0, 50)}...`;
+                    
+                    // Decodificar JWT
+                    const payload = JSON.parse(atob(data.token.split('.')[1]));
+                    result.textContent += `\n\nJWT Payload:\n${JSON.stringify(payload, null, 2)}`;
+                } else {
+                    result.textContent = `❌ Erro no login:\n${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                result.textContent = `❌ Erro: ${error.message}`;
+            }
+        }
+        
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            document.getElementById('login-result').textContent = '✅ Logout realizado!';
+            document.getElementById('auth-result').textContent = '';
+            document.getElementById('slides-result').textContent = '';
+        }
+        
+        async function checkAuth() {
+            const result = document.getElementById('auth-result');
+            const token = localStorage.getItem('token');
+            const user = localStorage.getItem('user');
+            
+            if (!token) {
+                result.textContent = '❌ Nenhum usuário logado';
+                return;
+            }
+            
+            result.textContent = `✅ Token encontrado no localStorage:\n\n`;
+            result.textContent += `User: ${user}\n\n`;
+            
+            // Decodificar JWT
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                result.textContent += `JWT Payload:\n${JSON.stringify(payload, null, 2)}\n\n`;
+                result.textContent += `Tenant: ${payload.tenant}\n`;
+                result.textContent += `Role: ${payload.role}\n`;
+                result.textContent += `UserId: ${payload.userId}`;
+            } catch (error) {
+                result.textContent += `Erro ao decodificar JWT: ${error.message}`;
+            }
+        }
+        
+        async function getSlides() {
+            const result = document.getElementById('slides-result');
+            const token = localStorage.getItem('token');
+            
+            if (!token) {
+                result.textContent = '❌ Faça login primeiro!';
+                return;
+            }
+            
+            result.textContent = '🔄 Buscando slides...';
+            
+            try {
+                const response = await fetch(`${API_URL}/slides`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    result.textContent = `✅ Slides do tenant atual:\n\n`;
+                    result.textContent += `Total: ${data.length} slide(s)\n\n`;
+                    result.textContent += JSON.stringify(data, null, 2);
+                } else {
+                    result.textContent = `❌ Erro:\n${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                result.textContent = `❌ Erro: ${error.message}`;
+            }
+        }
+        
+        function openDashboard() {
+            window.open('http://localhost/display', '_blank');
+        }
+        
+        function openAdmin() {
+            window.open('http://localhost/admin', '_blank');
+        }
+    </script>
+</body>
+</html>

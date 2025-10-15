@@ -6,6 +6,7 @@ import { users, slides, fixedContent } from './schema';
 
 const DEFAULT_ADMIN_PASSWORD = 'admin123';
 const DEFAULT_VIEWER_PASSWORD = 'viewer123';
+const AKROZ_PASSWORD = 'akroz123';
 
 export interface SeedResult {
   executed: boolean;
@@ -32,6 +33,7 @@ async function seed(): Promise<SeedResult> {
 
     const hashedAdminPassword = await bcrypt.hash(DEFAULT_ADMIN_PASSWORD, 10);
     const hashedViewerPassword = await bcrypt.hash(DEFAULT_VIEWER_PASSWORD, 10);
+    const hashedAkrozPassword = await bcrypt.hash(AKROZ_PASSWORD, 10);
 
     await db
       .insert(users)
@@ -40,51 +42,108 @@ async function seed(): Promise<SeedResult> {
           username: 'admin',
           password: hashedAdminPassword,
           role: 'ADMIN',
+          tenant: 'default',
         },
         {
           username: 'tv',
           password: hashedViewerPassword,
           role: 'VIEWER',
+          tenant: 'default',
+        },
+        {
+          username: 'akroz',
+          password: hashedAkrozPassword,
+          role: 'ADMIN',
+          tenant: 'akroz',
+        },
+        {
+          username: 'akroz-tv',
+          password: hashedViewerPassword,
+          role: 'VIEWER',
+          tenant: 'akroz',
         },
       ])
       .onConflictDoNothing();
 
-    console.log('✅ Usuários criados: admin/admin123, tv/viewer123');
+    console.log('✅ Usuários criados:');
+    console.log('   - admin/admin123 (ADMIN, tenant: default)');
+    console.log('   - tv/viewer123 (VIEWER, tenant: default)');
+    console.log('   - akroz/akroz123 (ADMIN, tenant: akroz)');
+    console.log('   - akroz-tv/viewer123 (VIEWER, tenant: akroz)');
 
     console.log('📊 Criando slides padrão...');
 
-    await db
-      .insert(slides)
-      .values([
-        {
-          title: 'Bem-vindo ao JIMI IOT Brasil',
-          content: 'Sistema de Dashboard Profissional',
-          duration: 5000,
-          order: 1,
-          isActive: true,
-        },
-      ])
-      .onConflictDoNothing();
+    const [{ slideCount }] = await db
+      .select({ slideCount: sql<number>`COUNT(*)` })
+      .from(slides);
+
+    if (Number(slideCount) === 0) {
+      await db
+        .insert(slides)
+        .values([
+          {
+            title: 'Bem-vindo ao JIMI IOT Brasil',
+            content: '<h2>Sistema de Dashboard Profissional</h2><p>Monitore seus dispositivos em tempo real</p>',
+            duration: 5000,
+            order: 1,
+            isActive: true,
+            tenant: 'default',
+          },
+          {
+            title: 'Bem-vindo à Akroz Telematics',
+            content: '<h2>Soluções Inteligentes em Rastreamento</h2><p>Tecnologia de ponta para sua frota</p>',
+            duration: 5000,
+            order: 1,
+            isActive: true,
+            tenant: 'akroz',
+          },
+        ]);
+      console.log('✅ Slides criados para ambos os tenants');
+    }
 
     console.log('📄 Criando conteúdo fixo padrão...');
 
-    await db
-      .insert(fixedContent)
-      .values([
-        {
-          type: 'logo',
-          content: 'JIMI IOT BRASIL',
-          isActive: true,
-          order: 1,
-        },
-        {
-          type: 'footer',
-          content: 'Tecnologia Inteligente para o Futuro',
-          isActive: true,
-          order: 2,
-        },
-      ])
-      .onConflictDoNothing();
+    const [{ fixedContentCount }] = await db
+      .select({ fixedContentCount: sql<number>`COUNT(*)` })
+      .from(fixedContent);
+
+    if (Number(fixedContentCount) === 0) {
+      await db
+        .insert(fixedContent)
+        .values([
+          // Default tenant (JIMI)
+          {
+            type: 'logo',
+            content: 'JIMI IOT BRASIL',
+            isActive: true,
+            order: 1,
+            tenant: 'default',
+          },
+          {
+            type: 'footer',
+            content: 'Tecnologia Inteligente para o Futuro',
+            isActive: true,
+            order: 2,
+            tenant: 'default',
+          },
+          // Akroz tenant
+          {
+            type: 'logo',
+            content: 'AKROZ TELEMATICS',
+            isActive: true,
+            order: 1,
+            tenant: 'akroz',
+          },
+          {
+            type: 'footer',
+            content: 'Rastreamento Inteligente e Seguro',
+            isActive: true,
+            order: 2,
+            tenant: 'akroz',
+          },
+        ]);
+      console.log('✅ Conteúdo fixo criado para ambos os tenants');
+    }
 
     console.log('✅ Seed concluído com sucesso!');
     return { executed: true };

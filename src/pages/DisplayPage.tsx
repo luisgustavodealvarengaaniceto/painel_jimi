@@ -1,9 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import styled from 'styled-components';
+import React, { useState, useEffect, useRef } from 'react';
+import styled, { useTheme } from 'styled-components';
 import { useQuery } from '@tanstack/react-query';
 import { slidesService } from '../services/slidesService';
 import { fixedContentService } from '../services/fixedContentService';
 import { useDisplaySync } from '../hooks/useDisplaySync';
+import { useAutoScroll } from '../hooks/useAutoScroll';
+import { useAuth } from '../contexts/AuthContext';
+import SlideImages from '../components/SlideImages';
+import type { Theme } from '../styles/themes';
 
 const Container = styled.div`
   height: 100vh;
@@ -42,13 +46,14 @@ const DynamicSection = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: ${props => props.theme.spacing[8]};
+  padding: ${props => props.theme.spacing[3]};
   position: relative;
+  overflow: hidden;
   
   @media (max-width: 768px) {
     width: 100%;
     flex: 1;
-    padding: ${props => props.theme.spacing[4]};
+    padding: ${props => props.theme.spacing[2]};
   }
 `;
 
@@ -56,6 +61,14 @@ const Logo = styled.div`
   text-align: center;
   padding: ${props => props.theme.spacing[4]} 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+`;
+
+const LogoImage = styled.img`
+  width: 100%;
+  max-width: 220px;
+  height: auto;
+  margin: 0 auto;
+  display: block;
 `;
 
 const LogoText = styled.h1`
@@ -114,15 +127,52 @@ const FixedContentItem = styled.div`
   backdrop-filter: blur(10px);
 `;
 
-const FixedContentTitle = styled.h3`
-  font-size: ${props => props.theme.fontSizes.lg};
+const FixedContentTitle = styled.h3<{ $fontSize?: number }>`
+  font-size: ${props => props.$fontSize ? `${props.$fontSize}px` : props.theme.fontSizes.lg};
   font-weight: 600;
   margin-bottom: ${props => props.theme.spacing[2]};
 `;
 
-const FixedContentText = styled.div`
-  font-size: ${props => props.theme.fontSizes.sm};
+const FixedContentText = styled.div<{ $fontSize?: number }>`
+  font-size: ${props => props.$fontSize ? `${props.$fontSize}px` : props.theme.fontSizes.sm};
   line-height: 1.5;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+
+  /* Estilos para tabelas no conteúdo fixo */
+  table {
+    width: 100%;
+    max-width: 100%;
+    border-collapse: collapse;
+    margin: ${props => props.theme.spacing[2]} 0;
+    background: rgba(255, 255, 255, 0.1);
+    font-size: ${props => props.$fontSize ? `${props.$fontSize * 0.85}px` : '0.85em'};
+    table-layout: fixed; /* Força largura fixa das colunas */
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+  }
+
+  th, td {
+    padding: ${props => props.theme.spacing[2]};
+    text-align: left;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+    hyphens: auto;
+    max-width: 0; /* Força as colunas a se distribuírem igualmente */
+    min-width: 60px; /* Largura mínima para legibilidade */
+  }
+
+  th {
+    background: rgba(255, 255, 255, 0.15);
+    font-weight: 600;
+    font-size: ${props => props.$fontSize ? `${props.$fontSize * 0.9}px` : '0.9em'};
+  }
+
+  tbody tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.05);
+  }
 `;
 
 const SlideContainer = styled.div<{ $isVisible: boolean }>`
@@ -136,56 +186,96 @@ const SlideContainer = styled.div<{ $isVisible: boolean }>`
   justify-content: center;
   align-items: center;
   text-align: center;
-  padding: ${props => props.theme.spacing[12]};
+  padding: ${props => props.theme.spacing[4]};
   opacity: ${props => props.$isVisible ? 1 : 0};
   transform: translateX(${props => props.$isVisible ? '0' : '100px'});
+  overflow-x: hidden; /* Previne scroll horizontal em todo o slide */
+  overflow-y: auto; /* Permite scroll vertical se necessário */
+  
+  /* Container para tabelas grandes - prevenção de overflow */
+  table {
+    max-width: 100%;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  
+  /* Prevenção de overflow horizontal global */
+  * {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
   transition: all 0.8s ease-in-out;
+  overflow-x: hidden; /* Previne scroll horizontal */
+  overflow-y: auto; /* Permite scroll vertical */
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
   
   @media (max-width: 768px) {
-    padding: ${props => props.theme.spacing[6]};
+    padding: ${props => props.theme.spacing[3]};
   }
 `;
 
-const SlideTitle = styled.h1`
+const SlideTitle = styled.h1<{ $fontSize?: number }>`
   font-family: ${props => props.theme.fonts.secondary};
-  font-size: ${props => props.theme.fontSizes['5xl']};
+  font-size: ${props => props.$fontSize ? `${props.$fontSize * 2}px` : props.theme.fontSizes['5xl']};
   font-weight: 700;
   color: ${props => props.theme.colors.secondary};
   margin-bottom: ${props => props.theme.spacing[8]};
   line-height: 1.2;
   
   @media (max-width: 768px) {
-    font-size: ${props => props.theme.fontSizes['3xl']};
+    font-size: ${props => props.$fontSize ? `${props.$fontSize * 1.5}px` : props.theme.fontSizes['3xl']};
     margin-bottom: ${props => props.theme.spacing[4]};
   }
 `;
 
-const SlideContent = styled.div`
-  font-size: ${props => props.theme.fontSizes['2xl']};
+const SlideContent = styled.div<{ $fontSize?: number }>`
+  font-size: ${props => props.$fontSize ? `${props.$fontSize}px` : props.theme.fontSizes['2xl']};
   color: ${props => props.theme.colors.gray[700]};
-  line-height: 1.6;
-  max-width: 800px;
+  line-height: 1.5;
+  width: 100%;
+  max-width: 100%;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  overflow-x: hidden;
+  white-space: pre-wrap; /* Preserva quebras de linha e espaços */
   
   @media (max-width: 768px) {
-    font-size: ${props => props.theme.fontSizes.lg};
-    max-width: 100%;
+    font-size: ${props => props.$fontSize ? `${props.$fontSize * 0.85}px` : props.theme.fontSizes.lg};
+  }
+
+  /* Garantir que quebras de linha sejam respeitadas */
+  br {
+    display: block;
+    margin: 0.5em 0;
+    line-height: 1.2;
+  }
+
+  /* Hard breaks do TipTap */
+  .hard-break {
+    display: block;
+    margin: 0.5em 0;
   }
 
   h1, h2, h3, h4, h5, h6 {
     color: ${props => props.theme.colors.secondary};
-    margin-bottom: ${props => props.theme.spacing[4]};
+    margin-bottom: ${props => props.theme.spacing[3]};
+    word-wrap: break-word;
+    white-space: normal; /* Headers podem quebrar normalmente */
   }
 
   h2 {
-    font-size: ${props => props.theme.fontSizes['4xl']};
+    font-size: ${props => props.$fontSize ? `${props.$fontSize * 1.5}px` : props.theme.fontSizes['4xl']};
   }
 
   h3 {
-    font-size: ${props => props.theme.fontSizes['3xl']};
+    font-size: ${props => props.$fontSize ? `${props.$fontSize * 1.3}px` : props.theme.fontSizes['3xl']};
   }
 
   p {
     margin-bottom: ${props => props.theme.spacing[4]};
+    white-space: pre-wrap; /* Preserva quebras de linha dentro dos parágrafos */
   }
 
   ul, ol {
@@ -198,6 +288,184 @@ const SlideContent = styled.div`
     margin-bottom: ${props => props.theme.spacing[2]};
     list-style: disc;
   }
+
+  /* Estilos para tabelas do Excel */
+  table {
+    width: 100%;
+    max-width: 100%;
+    border-collapse: collapse;
+    margin: ${props => props.theme.spacing[4]} auto;
+    background: ${props => props.theme.colors.white};
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-radius: ${props => props.theme.radii.md};
+    overflow: hidden;
+    table-layout: auto; /* Mudança: volta para auto para permitir ajuste natural */
+    font-size: ${props => props.$fontSize ? `${props.$fontSize * 0.85}px` : '0.9em'};
+    /* Garante que a tabela nunca ultrapasse o container */
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+  }
+
+  thead {
+    background: linear-gradient(135deg, ${props => props.theme.colors.primary}, ${props => props.theme.colors.secondary});
+    color: ${props => props.theme.colors.white};
+  }
+
+  th {
+    padding: ${props => props.theme.spacing[3]} ${props => props.theme.spacing[2]};
+    text-align: left;
+    font-weight: 600;
+    font-size: ${props => props.$fontSize ? `${props.$fontSize * 0.8}px` : '0.85em'};
+    border-bottom: 3px solid ${props => props.theme.colors.primary};
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+    hyphens: auto;
+    white-space: normal; /* Permite quebra de linha natural */
+    min-width: 100px; /* Largura mínima para cabeçalhos */
+    vertical-align: top;
+  }
+
+  td {
+    padding: ${props => props.theme.spacing[2]} ${props => props.theme.spacing[2]};
+    text-align: left;
+    border-bottom: 1px solid ${props => props.theme.colors.gray[200]};
+    font-size: ${props => props.$fontSize ? `${props.$fontSize * 0.75}px` : '0.8em'};
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+    hyphens: auto;
+    white-space: normal; /* Permite quebra de linha natural */
+    min-width: 80px; /* Largura mínima para dados */
+    vertical-align: top; /* Alinha conteúdo ao topo da célula */
+    line-height: 1.4; /* Melhora legibilidade em texto quebrado */
+  }
+
+  tbody tr {
+    transition: background-color 0.2s;
+  }
+
+  tbody tr:nth-child(even) {
+    background-color: ${props => props.theme.colors.gray[50]};
+  }
+
+  tbody tr:hover {
+    background-color: ${props => props.theme.colors.gray[100]};
+  }
+
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  /* Tabelas sem thead (apenas td) */
+  tbody tr:first-child td {
+    font-weight: 600;
+    background: ${props => props.theme.colors.gray[100]};
+    border-bottom: 2px solid ${props => props.theme.colors.gray[300]};
+  }
+
+  /* Responsividade para tabelas em TVs e monitores grandes */
+  @media (min-width: 1200px) {
+    table {
+      font-size: ${props => props.$fontSize ? `${props.$fontSize * 0.9}px` : '1rem'};
+      table-layout: auto; /* Permite ajuste natural das colunas */
+    }
+    
+    th {
+      min-width: 120px;
+      font-size: ${props => props.$fontSize ? `${props.$fontSize * 0.85}px` : '0.9rem'};
+      padding: ${props => props.theme.spacing[3]} ${props => props.theme.spacing[3]};
+    }
+    
+    td {
+      min-width: 100px;
+      font-size: ${props => props.$fontSize ? `${props.$fontSize * 0.8}px` : '0.85rem'};
+      padding: ${props => props.theme.spacing[2]} ${props => props.theme.spacing[3]};
+    }
+  }
+
+  /* Responsividade para tablets e telas médias */
+  @media (max-width: 1199px) and (min-width: 768px) {
+    table {
+      font-size: ${props => props.$fontSize ? `${props.$fontSize * 0.8}px` : '0.85rem'};
+      table-layout: fixed; /* Força distribuição igual em telas médias */
+    }
+    
+    th, td {
+      padding: ${props => props.theme.spacing[1]} ${props => props.theme.spacing[2]};
+      min-width: 80px;
+      font-size: ${props => props.$fontSize ? `${props.$fontSize * 0.7}px` : '0.75rem'};
+      max-width: 0; /* Força distribuição igual */
+    }
+  }
+
+  /* Responsividade para telas pequenas */
+  @media (max-width: 767px) {
+    table {
+      font-size: ${props => props.$fontSize ? `${props.$fontSize * 0.7}px` : '0.75rem'};
+      table-layout: fixed; /* Força distribuição igual em telas pequenas */
+    }
+    
+    th, td {
+      padding: ${props => props.theme.spacing[1]};
+      min-width: 60px;
+      max-width: 0; /* Força distribuição igual */
+      font-size: ${props => props.$fontSize ? `${props.$fontSize * 0.65}px` : '0.7rem'};
+    }
+    
+    th {
+      text-transform: none; /* Remove caps em telas pequenas */
+      letter-spacing: normal;
+    }
+  }
+
+  /* Proteção extra para tabelas muito largas em dispositivos pequenos */
+  @media (max-width: 480px) {
+    table {
+      table-layout: fixed;
+      width: 100%;
+    }
+    
+    th, td {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 0;
+      white-space: nowrap;
+    }
+    
+    /* Permite expansão ao hover/touch */
+    th:hover, td:hover,
+    th:focus, td:focus {
+      white-space: normal;
+      overflow: visible;
+      position: relative;
+      z-index: 10;
+      background: ${props => props.theme.colors.white};
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+  }
+`;
+
+const SlideContentWrapper = styled.div`
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  transform-origin: center center;
+  transition: transform 0.3s ease-out;
+  overflow-x: hidden; /* Proteção extra contra overflow horizontal */
+  box-sizing: border-box;
+  
+  /* Garante que todo conteúdo interno respeite a largura máxima */
+  * {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
 `;
 
 const LoadingMessage = styled.div`
@@ -208,6 +476,56 @@ const LoadingMessage = styled.div`
   font-size: ${props => props.theme.fontSizes['2xl']};
   color: ${props => props.theme.colors.gray[600]};
 `;
+// Component for individual slide with auto-scroll
+interface SlideWithAutoScrollProps {
+  slide: any;
+  isVisible: boolean;
+  index: number;
+  slideRefs: React.MutableRefObject<(HTMLDivElement | null)[]>;
+  isAuthReady: boolean; // Indica se a autenticação está pronta
+}
+
+const SlideWithAutoScroll: React.FC<SlideWithAutoScrollProps> = React.memo(({ 
+  slide, 
+  isVisible, 
+  index, 
+  slideRefs,
+  isAuthReady
+}) => {
+  const autoScrollRef = useAutoScroll({
+    duration: slide.duration * 1000, // Convert seconds to milliseconds
+    isActive: isVisible,
+    resetTrigger: isVisible ? slide.id : null
+  });
+
+  return (
+    <SlideContainer $isVisible={isVisible}>
+      <SlideContentWrapper 
+        ref={(el) => {
+          slideRefs.current[index] = el;
+        }}
+      >
+        <SlideTitle $fontSize={slide.fontSize}>
+          {slide.title}
+        </SlideTitle>
+        <SlideContent 
+          ref={autoScrollRef}
+          $fontSize={slide.fontSize}
+          dangerouslySetInnerHTML={{ __html: slide.content }}
+        />
+        <SlideImages slideId={slide.id} enabled={isAuthReady} />
+      </SlideContentWrapper>
+    </SlideContainer>
+  );
+}, (prevProps, nextProps) => {
+  // Only re-render if these props change
+  return (
+    prevProps.slide.id === nextProps.slide.id &&
+    prevProps.isVisible === nextProps.isVisible &&
+    prevProps.isAuthReady === nextProps.isAuthReady &&
+    prevProps.index === nextProps.index
+  );
+});
 
 const ErrorMessage = styled.div`
   display: flex;
@@ -221,16 +539,33 @@ const ErrorMessage = styled.div`
 `;
 
 const DisplayPage: React.FC = () => {
+  const theme = useTheme() as Theme;
+  const { user, isLoading: authLoading } = useAuth();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [lastUpdate, setLastUpdate] = useState(new Date());
+  const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // Autenticação está pronta quando não está mais carregando
+  const isAuthReady = !authLoading;
+
+  // Get brand info from theme
+  const brandName = theme.brand || 'JIMI IOT BRASIL';
+  const themeName = theme.name || 'default';
+  const brandParts = brandName.split(' ');
+  const brandMain = brandParts.slice(0, 2).join(' ') || 'JIMI IOT';
+  const brandSub = brandParts.slice(2).join(' ') || 'BRASIL';
+  
+  // Check if it's Akroz Group theme to show logo instead of text
+  const isAkrozTheme = themeName === 'akroz';
 
   // Initialize display sync for real-time updates
   useDisplaySync();
 
   // Fetch slides with aggressive refreshing for TV display
   const { data: slides = [], isLoading: slidesLoading, error: slidesError, dataUpdatedAt } = useQuery({
-    queryKey: ['slides'],
+    queryKey: ['slides', user?.tenant],
     queryFn: slidesService.getAllSlides,
     refetchInterval: 5000, // Refetch every 5 seconds for TV display
     refetchIntervalInBackground: true, // Continue refetching when tab is not active
@@ -242,7 +577,7 @@ const DisplayPage: React.FC = () => {
 
   // Fetch fixed content with aggressive refreshing
   const { data: fixedContent = [], isLoading: contentLoading, error: contentError, dataUpdatedAt: fixedContentUpdatedAt } = useQuery({
-    queryKey: ['fixedContent'],
+    queryKey: ['fixedContent', user?.tenant],
     queryFn: fixedContentService.getAllFixedContent,
     refetchInterval: 5000, // Refetch every 5 seconds for TV display
     refetchIntervalInBackground: true, // Continue refetching when tab is not active
@@ -287,6 +622,38 @@ const DisplayPage: React.FC = () => {
     return () => clearTimeout(timeout);
   }, [slides, currentSlideIndex]);
 
+  // Auto-scaling effect for slide content
+  useEffect(() => {
+    if (slides.length === 0 || !containerRef.current) return;
+
+    const currentSlideRef = slideRefs.current[currentSlideIndex];
+    if (!currentSlideRef) return;
+
+    const container = containerRef.current;
+    const containerHeight = container.clientHeight;
+    const containerWidth = container.clientWidth;
+
+    // Wait for content to render
+    const timeoutId = setTimeout(() => {
+      const contentHeight = currentSlideRef.scrollHeight;
+      const contentWidth = currentSlideRef.scrollWidth;
+
+      // Calculate scale factors
+      const scaleY = contentHeight > containerHeight ? containerHeight / contentHeight : 1;
+      const scaleX = contentWidth > containerWidth ? containerWidth / contentWidth : 1;
+      const scale = Math.min(scaleY, scaleX, 1); // Never scale up, only down
+
+      // Apply scale with slight padding (95% to ensure margin)
+      if (scale < 1) {
+        currentSlideRef.style.transform = `scale(${scale * 0.95})`;
+      } else {
+        currentSlideRef.style.transform = 'scale(1)';
+      }
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, [currentSlideIndex, slides]);
+
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('pt-BR', {
       weekday: 'long',
@@ -321,8 +688,17 @@ const DisplayPage: React.FC = () => {
     <Container>
       <FixedSection>
         <Logo>
-          <LogoText>JIMI IOT</LogoText>
-          <LogoSubtitle>BRASIL</LogoSubtitle>
+          {isAkrozTheme ? (
+            <LogoImage 
+              src="/logos/logo-akroz-group-alinhamento-base-horiz.png"
+              alt="Akroz Group"
+            />
+          ) : (
+            <>
+              <LogoText>{brandMain}</LogoText>
+              <LogoSubtitle>{brandSub}</LogoSubtitle>
+            </>
+          )}
         </Logo>
 
         <DateTime>
@@ -332,13 +708,14 @@ const DisplayPage: React.FC = () => {
 
         {fixedContent.map((item) => (
           <FixedContentItem key={item.id}>
-            <FixedContentTitle>
+            <FixedContentTitle $fontSize={item.fontSize}>
               {item.type === 'announcement' ? '📢 Aviso' : 
                item.type === 'weather' ? '🌤️ Clima' : 
                item.type === 'kpi' ? '📊 KPIs' : 
                '💡 Informação'}
             </FixedContentTitle>
             <FixedContentText 
+              $fontSize={item.fontSize}
               dangerouslySetInnerHTML={{ __html: item.content }}
             />
           </FixedContentItem>
@@ -351,27 +728,28 @@ const DisplayPage: React.FC = () => {
         </FixedContentItem>
       </FixedSection>
 
-      <DynamicSection>
+      <DynamicSection ref={containerRef}>
         {slides.length === 0 ? (
           <SlideContainer $isVisible={true}>
-            <SlideTitle>Bem-vindos!</SlideTitle>
-            <SlideContent>
-              <p>Nenhum slide configurado ainda.</p>
-              <p>Entre na área administrativa para adicionar conteúdo.</p>
-            </SlideContent>
+            <SlideContentWrapper>
+              <SlideTitle>Bem-vindos!</SlideTitle>
+              <SlideContent>
+                <p>Nenhum slide configurado ainda.</p>
+                <p>Entre na área administrativa para adicionar conteúdo.</p>
+              </SlideContent>
+            </SlideContentWrapper>
           </SlideContainer>
         ) : (
           <>
             {slides.map((slide, index) => (
-              <SlideContainer 
-                key={slide.id} 
-                $isVisible={index === currentSlideIndex}
-              >
-                <SlideTitle>{slide.title}</SlideTitle>
-                <SlideContent 
-                  dangerouslySetInnerHTML={{ __html: slide.content }}
-                />
-              </SlideContainer>
+              <SlideWithAutoScroll
+                key={slide.id}
+                slide={slide}
+                isVisible={index === currentSlideIndex}
+                index={index}
+                slideRefs={slideRefs}
+                isAuthReady={isAuthReady}
+              />
             ))}
           </>
         )}

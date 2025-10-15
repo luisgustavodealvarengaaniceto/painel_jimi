@@ -28,8 +28,9 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
+      console.warn('[API] Token inválido (401), removendo token...');
       localStorage.removeItem('authToken');
-      window.location.href = '/login';
+      // Não redirecionar automaticamente, deixar o AuthContext lidar com isso
     }
     return Promise.reject(error);
   }

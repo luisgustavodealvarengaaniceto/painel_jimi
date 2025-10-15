@@ -37,6 +37,7 @@ services:
     volumes:
       - frontend_files:/app/frontend
       - app_logs:/app/logs  # Logs persistentes
+      - uploads_files:/app/uploads  # Arquivos de upload persistentes
     networks:
       - jimi-network
     depends_on:
@@ -56,6 +57,7 @@ services:
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - frontend_files:/app/frontend:ro
+      - uploads_files:/app/uploads:ro  # Acesso aos uploads
       - nginx_logs:/var/log/nginx  # Logs separados do nginx
     networks:
       - jimi-network
@@ -81,3 +83,5 @@ volumes:
     name: jimi_app_logs
   nginx_logs:
     name: jimi_nginx_logs
+  uploads_files:
+    name: jimi_uploads_files

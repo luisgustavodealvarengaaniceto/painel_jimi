@@ -1,9 +1,9 @@
 import type { Request, Response } from 'express';
-import { asc, eq, sql } from 'drizzle-orm';
+import { asc, desc, eq, sql, and } from 'drizzle-orm';
 
 import { db } from '../db';
 import { slides } from '../db/schema';
-import type { CreateSlideRequest, UpdateSlideRequest } from '../types';
+import type { CreateSlideRequest, UpdateSlideRequest, AuthRequest } from '../types';
 import { serializeSlide } from '../utils/serializers';
 
 const getNextSlideOrder = async () => {
@@ -11,21 +11,63 @@ const getNextSlideOrder = async () => {
   return (result?.maxOrder ?? 0) + 1;
 };
 
-export const getAllSlides = async (_req: Request, res: Response) => {
+export const getAllSlides = async (req: AuthRequest, res: Response) => {
   try {
-    const items = await db
-      .select()
-      .from(slides)
-      .orderBy(asc(slides.order), asc(slides.id));
+    console.log('🔍 [getAllSlides] Consultando slides...');
+    
+    const tenant = req.user?.tenant || 'default';
+    const isAdmin = req.user?.role === 'ADMIN';
+    console.log(`🏢 [getAllSlides] Tenant: ${tenant}, Role: ${req.user?.role}`);
+    
+    let items;
+    
+    if (isAdmin) {
+      // Admin vê todos os slides (ativos e inativos, mas não arquivados)
+      items = await db
+        .select()
+        .from(slides)
+        .where(and(
+          eq(slides.isArchived, false),
+          eq(slides.tenant, tenant)
+        ))
+        .orderBy(asc(slides.order), asc(slides.id));
+      
+      console.log(`👑 [getAllSlides] Admin - Retornando todos os slides não arquivados: ${items.length}`);
+    } else {
+      // Viewer vê apenas slides ativos, não arquivados e não expirados
+      items = await db
+        .select()
+        .from(slides)
+        .where(and(
+          eq(slides.isActive, true),
+          eq(slides.isArchived, false),
+          eq(slides.tenant, tenant)
+        ))
+        .orderBy(asc(slides.order), asc(slides.id));
+      
+      // Filtrar slides expirados
+      const now = new Date();
+      items = items.filter(slide => !slide.expiresAt || new Date(slide.expiresAt) > now);
+      
+      console.log(`📺 [getAllSlides] Viewer - Retornando slides ativos e não expirados: ${items.length}`);
+    }
 
-    return res.json({ slides: items.map(serializeSlide) });
+    console.log(`📊 [getAllSlides] Total de slides encontrados: ${items.length}`);
+    items.forEach((slide, idx) => {
+      console.log(`   ${idx + 1}. [ID ${slide.id}] "${slide.title}" - tenant: ${slide.tenant}, isActive: ${slide.isActive}, isArchived: ${slide.isArchived}, expiresAt: ${slide.expiresAt || 'null'}`);
+    });
+
+    const serialized = items.map(serializeSlide);
+    console.log(`✅ [getAllSlides] Retornando ${serialized.length} slides para o frontend`);
+    
+    return res.json({ slides: serialized });
   } catch (error) {
-    console.error('Get all slides error:', error);
+    console.error('❌ [getAllSlides] Erro ao buscar slides:', error);
     return res.status(500).json({ message: 'Internal server error' });
   }
 };
 
-export const getSlideById = async (req: Request, res: Response) => {
+export const getSlideById = async (req: AuthRequest, res: Response) => {
   try {
     const slideId = Number(req.params.id);
 
@@ -33,7 +75,16 @@ export const getSlideById = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Invalid slide id' });
     }
 
-    const [slide] = await db.select().from(slides).where(eq(slides.id, slideId)).limit(1);
+    const tenant = req.user?.tenant || 'default';
+
+    const [slide] = await db
+      .select()
+      .from(slides)
+      .where(and(
+        eq(slides.id, slideId),
+        eq(slides.tenant, tenant)
+      ))
+      .limit(1);
 
     if (!slide) {
       return res.status(404).json({ message: 'Slide not found' });
@@ -46,14 +97,18 @@ export const getSlideById = async (req: Request, res: Response) => {
   }
 };
 
-export const createSlide = async (req: Request, res: Response) => {
+export const createSlide = async (req: AuthRequest, res: Response) => {
   try {
-    const { title, content, duration, order, isActive } = req.body as CreateSlideRequest;
+    const { title, content, duration, order, isActive, expiresAt, fontSize } = req.body as CreateSlideRequest;
 
     if (!title || !content) {
       return res.status(400).json({ message: 'Title and content are required' });
     }
 
+    const tenant = req.user?.tenant || 'default';
+    console.log(`🆕 [createSlide] Criando slide "${title}" para tenant: ${tenant}`);
+    console.log(`👤 [createSlide] Usuário: ${req.user?.username} (ID: ${req.user?.id}, tenant: ${req.user?.tenant})`);
+    
     const resolvedOrder = typeof order === 'number' ? order : await getNextSlideOrder();
 
     const [newSlide] = await db
@@ -64,6 +119,10 @@ export const createSlide = async (req: Request, res: Response) => {
         duration: typeof duration === 'number' ? duration : 5000,
         order: resolvedOrder,
         isActive: typeof isActive === 'boolean' ? isActive : true,
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        fontSize: typeof fontSize === 'number' ? fontSize : 16,
+        isArchived: false,
+        tenant,
         createdAt: new Date(),
         updatedAt: new Date(),
       })
@@ -79,7 +138,7 @@ export const createSlide = async (req: Request, res: Response) => {
   }
 };
 
-export const updateSlide = async (req: Request, res: Response) => {
+export const updateSlide = async (req: AuthRequest, res: Response) => {
   try {
     const slideId = Number(req.params.id);
 
@@ -87,7 +146,8 @@ export const updateSlide = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Invalid slide id' });
     }
 
-    const { title, content, duration, order, isActive } = req.body as UpdateSlideRequest;
+    const { title, content, duration, order, isActive, expiresAt, isArchived, fontSize } = req.body as UpdateSlideRequest;
+    const tenant = req.user?.tenant || 'default';
 
     const updateData: Partial<typeof slides.$inferInsert> = {};
 
@@ -96,6 +156,9 @@ export const updateSlide = async (req: Request, res: Response) => {
     if (duration !== undefined) updateData.duration = duration;
     if (order !== undefined) updateData.order = order;
     if (isActive !== undefined) updateData.isActive = isActive;
+    if (expiresAt !== undefined) updateData.expiresAt = expiresAt ? new Date(expiresAt) : null;
+    if (isArchived !== undefined) updateData.isArchived = isArchived;
+    if (fontSize !== undefined) updateData.fontSize = fontSize;
 
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({ message: 'No fields provided for update' });
@@ -106,7 +169,10 @@ export const updateSlide = async (req: Request, res: Response) => {
     const [updatedSlide] = await db
       .update(slides)
       .set(updateData)
-      .where(eq(slides.id, slideId))
+      .where(and(
+        eq(slides.id, slideId),
+        eq(slides.tenant, tenant)
+      ))
       .returning();
 
     if (!updatedSlide) {
@@ -123,7 +189,7 @@ export const updateSlide = async (req: Request, res: Response) => {
   }
 };
 
-export const deleteSlide = async (req: Request, res: Response) => {
+export const deleteSlide = async (req: AuthRequest, res: Response) => {
   try {
     const slideId = Number(req.params.id);
 
@@ -131,9 +197,14 @@ export const deleteSlide = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Invalid slide id' });
     }
 
+    const tenant = req.user?.tenant || 'default';
+
     const [deletedSlide] = await db
       .delete(slides)
-      .where(eq(slides.id, slideId))
+      .where(and(
+        eq(slides.id, slideId),
+        eq(slides.tenant, tenant)
+      ))
       .returning({ id: slides.id });
 
     if (!deletedSlide) {
@@ -176,6 +247,54 @@ export const reorderSlides = async (req: Request, res: Response) => {
     return res.json({ message: 'Slides reordered successfully' });
   } catch (error) {
     console.error('Reorder slides error:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const getArchivedSlides = async (req: AuthRequest, res: Response) => {
+  try {
+    const tenant = req.user?.tenant || 'default';
+    const isAdmin = req.user?.role === 'ADMIN';
+
+    // Apenas admins podem ver slides arquivados
+    if (!isAdmin) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    console.log(`📦 [getArchivedSlides] Admin buscando slides arquivados para tenant: ${tenant}`);
+
+    const archivedSlides = await db
+      .select()
+      .from(slides)
+      .where(and(
+        eq(slides.isArchived, true),
+        eq(slides.tenant, tenant)
+      ))
+      .orderBy(desc(slides.updatedAt));
+
+    // Separar slides expirados dos manualmente arquivados
+    const now = new Date();
+    const expiredSlides = archivedSlides.filter(slide => 
+      slide.expiresAt && new Date(slide.expiresAt) <= now
+    );
+    const manuallyArchived = archivedSlides.filter(slide => 
+      !slide.expiresAt || new Date(slide.expiresAt) > now
+    );
+
+    console.log(`📦 [getArchivedSlides] Total arquivados: ${archivedSlides.length}`);
+    console.log(`⏰ [getArchivedSlides] Expirados: ${expiredSlides.length}`);
+    console.log(`📁 [getArchivedSlides] Manualmente arquivados: ${manuallyArchived.length}`);
+
+    const serializedExpired = expiredSlides.map(serializeSlide);
+    const serializedManual = manuallyArchived.map(serializeSlide);
+
+    return res.json({ 
+      expiredSlides: serializedExpired,
+      manuallyArchivedSlides: serializedManual,
+      total: archivedSlides.length
+    });
+  } catch (error) {
+    console.error('❌ [getArchivedSlides] Erro ao buscar slides arquivados:', error);
     return res.status(500).json({ message: 'Internal server error' });
   }
 };

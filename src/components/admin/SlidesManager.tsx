@@ -2,6 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { slidesService } from '../../services/slidesService';
+import { useAuth } from '../../contexts/AuthContext';
 import type { Slide } from '../../types';
 import { Edit, Trash2, Plus } from 'lucide-react';
 import { triggerDisplayUpdate } from '../../hooks/useDisplaySync';
@@ -210,21 +211,22 @@ interface SlidesManagerProps {
 
 const SlidesManager: React.FC<SlidesManagerProps> = ({ onCreateSlide, onEditSlide }) => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   // Fetch slides
   const { data: slides = [], isLoading, error } = useQuery({
-    queryKey: ['admin-slides'],
-    queryFn: slidesService.getAllSlides,
+    queryKey: ['admin-slides', user?.tenant],
+    queryFn: slidesService.getAllSlidesForAdmin,
   });
 
   // Delete slide mutation
   const deleteMutation = useMutation({
     mutationFn: slidesService.deleteSlide,
     onSuccess: () => {
-      // Invalidate admin slides
-      queryClient.invalidateQueries({ queryKey: ['admin-slides'] });
+      // Invalidate admin slides for this tenant
+      queryClient.invalidateQueries({ queryKey: ['admin-slides', user?.tenant] });
       // Invalidate display slides to update TV display immediately
-      queryClient.invalidateQueries({ queryKey: ['slides'] });
+      queryClient.invalidateQueries({ queryKey: ['slides', user?.tenant] });
       // Trigger cross-tab update notification
       triggerDisplayUpdate();
     },

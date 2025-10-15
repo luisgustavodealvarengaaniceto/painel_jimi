@@ -19,11 +19,18 @@ const LoginBox = styled.div`
   box-shadow: ${props => props.theme.shadows.xl};
   width: 100%;
   max-width: 400px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 `;
 
 const Logo = styled.div`
   text-align: center;
   margin-bottom: ${props => props.theme.spacing[8]};
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 `;
 
 const LogoText = styled.h1`
@@ -43,12 +50,14 @@ const Form = styled.form`
   display: flex;
   flex-direction: column;
   gap: ${props => props.theme.spacing[6]};
+  width: 100%;
 `;
 
 const InputGroup = styled.div`
   display: flex;
   flex-direction: column;
   gap: ${props => props.theme.spacing[2]};
+  width: 100%;
 `;
 
 const Label = styled.label`
@@ -63,6 +72,7 @@ const Input = styled.input`
   border-radius: ${props => props.theme.radii.lg};
   font-size: ${props => props.theme.fontSizes.base};
   transition: border-color 0.2s;
+  width: 100%;
 
   &:focus {
     border-color: ${props => props.theme.colors.primary};
@@ -83,6 +93,7 @@ const Button = styled.button`
   font-weight: 500;
   transition: all 0.2s;
   cursor: pointer;
+  width: 100%;
 
   &:hover {
     background: ${props => props.theme.colors.secondary};

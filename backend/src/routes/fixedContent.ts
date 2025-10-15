@@ -10,9 +10,9 @@ import { authenticateToken, requireAdmin } from '../middleware/auth';
 
 const router = Router();
 
-// Public routes (for TV display)
-router.get('/', getAllFixedContent);
-router.get('/:id', getFixedContentById);
+// All routes now require authentication for tenant filtering
+router.get('/', authenticateToken, getAllFixedContent);
+router.get('/:id', authenticateToken, getFixedContentById);
 
 // Admin only routes
 router.post('/', authenticateToken, requireAdmin, createFixedContent);
